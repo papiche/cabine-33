@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://csib43dfj2vkr"]
+
+[ext_resource type="Script" uid="uid://3xl8qoydb55h" path="res://scripts/World_3D.gd" id="1_world"]
+[ext_resource type="PackedScene" path="res://scenes/Main_UI.tscn" id="2_ui"]
+[ext_resource type="Shader" uid="uid://bsrtbb5e6p54s" path="res://shaders/hex_grid.gdshader" id="3_glth1"]
+
+[sub_resource type="Environment" id="Environment_glth1"]
+background_mode = 1
+background_color = Color(0.0056611504, 0.0056611514, 0.00566115, 1)
+glow_enabled = true
+glow_intensity = 1.5
+
+[sub_resource type="StandardMaterial3D" id="Material_Player"]
+albedo_color = Color(1, 0.8, 0.2, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0.2, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereMesh" id="Mesh_Player"]
+material = SubResource("Material_Player")
+radius = 1.0
+height = 2.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_jcd17"]
+render_priority = 0
+shader = ExtResource("3_glth1")
+shader_parameter/grid_color = Color(0, 0.5, 1, 1)
+shader_parameter/line_width = 0.05
+shader_parameter/hex_size = 2.0
+shader_parameter/world_offset = Vector3(0, 0, 0)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_f0ufm"]
+material = SubResource("ShaderMaterial_jcd17")
+custom_aabb = AABB(0, -0.1, 0, 0, 0, 0)
+size = Vector2(200, 200)
+
+[node name="Main_3D" type="Node3D" unique_id=27096625]
+script = ExtResource("1_world")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2003414691]
+environment = SubResource("Environment_glth1")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1099413397]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 5, 0)
+shadow_enabled = true
+
+[node name="PlayerAvatar" type="MeshInstance3D" parent="." unique_id=583804598]
+mesh = SubResource("Mesh_Player")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1586088220]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 15, 10)
+current = true
+fov = 60.0
+
+[node name="WorldRoot" type="Node3D" parent="." unique_id=731798783]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1855865724]
+
+[node name="Main_UI" parent="CanvasLayer" unique_id=811149623 instance=ExtResource("2_ui")]
+
+[node name="InfiniteGround" type="MeshInstance3D" parent="." unique_id=1658089559]
+mesh = SubResource("PlaneMesh_f0ufm")

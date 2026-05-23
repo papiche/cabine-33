@@ -1,0 +1,43 @@
+extends Node
+
+signal multipass_created(data)
+signal api_error(message)
+
+var http_request: HTTPRequest
+var base_url: String = "https://u.copylaradio.com" # Nœud Astroport par défaut
+
+func _ready():
+	http_request = HTTPRequest.new()
+	add_child(http_request)
+	http_request.connect("request_completed", Callable(self, "_on_request_completed"))
+
+# Appel à l'API /g1nostr pour forger les clés
+func forge_multipass(email: String, pepper: String, lat: float, lon: float):
+	print("📡 Demande de création MULTIPASS à l'Astroport...")
+	var url = base_url + "/g1nostr"
+	
+	var body = "email=" + email.uri_encode() + \
+			   "&lang=fr" + \
+			   "&lat=" + str(lat) + \
+			   "&lon=" + str(lon) + \
+			   "&salt=" + email.uri_encode() + \
+			   "&pepper=" + pepper.uri_encode() + \
+			   "&format=json"
+			   
+	var headers = ["Content-Type: application/x-www-form-urlencoded"]
+	
+	var err = http_request.request(url, headers, HTTPClient.METHOD_POST, body)
+	if err != OK:
+		emit_signal("api_error", "Erreur interne de requête HTTP")
+
+# Avertissements corrigés ici avec _result et _headers
+func _on_request_completed(_result, response_code, _headers, body):
+	if response_code == 200:
+		var json = JSON.new()
+		var parse_err = json.parse(body.get_string_from_utf8())
+		if parse_err == OK:
+			emit_signal("multipass_created", json.data)
+		else:
+			emit_signal("api_error", "Réponse du nœud illisible.")
+	else:
+		emit_signal("api_error", "Le nœud Astroport a refusé la connexion (Code " + str(response_code) + ")")
