@@ -1,0 +1,32 @@
+Categories:
+  - Games
+License: AGPL-3.0-only
+AuthorName: Fred
+AuthorEmail: support@qo-op.com
+SourceCode: https://github.com/qo-op/cabine-33
+IssueTracker: https://github.com/qo-op/cabine-33/issues
+
+AutoName: ATOM4LOVE
+
+RepoType: git
+Repo: https://github.com/qo-op/cabine-33
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0
+    subdir: .
+    sudo:
+      - apt-get install -y wget unzip openjdk-21-jdk
+    init:
+      - wget -q https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip -O /tmp/godot.zip
+      - unzip -q /tmp/godot.zip -d /tmp/
+      - chmod +x /tmp/Godot_v4.6.3-stable_linux.x86_64
+    build:
+      - /tmp/Godot_v4.6.3-stable_linux.x86_64 --headless --export-release "Android" atom4love.apk
+    output: atom4love.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '1.0'
+CurrentVersionCode: 1

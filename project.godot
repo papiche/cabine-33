@@ -28,6 +28,11 @@ Thought_Cache="*res://autoloads/Thought_Cache.gd"
 Phi2X_Math="*res://autoloads/Phi2X_Math.gd"
 SpaceTime_Manager="*res://autoloads/SpaceTime_Manager.gd"
 Atom4Peace="*res://autoloads/Atom4Peace.gd"
+Loca_Scanner="*res://autoloads/Loca_Scanner.gd"
+Nostr_Identity="*res://autoloads/Nostr_Identity.gd"
+Guide_System="*res://autoloads/Guide_System.gd"
+UI_Theme="*res://autoloads/UI_Theme.gd"
+Kin_Maya="*res://autoloads/Kin_Maya.gd"
 
 [display]
 
@@ -41,3 +46,4 @@ window/handheld/orientation=1
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true

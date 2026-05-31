@@ -5,7 +5,9 @@ extends Node3D
 @onready var camera = $Camera3D
 @onready var ground_mesh = $InfiniteGround # Nouveau
 
-var last_gps: Vector2 = Vector2.ZERO
+# float = 64 bits en GDScript 4 (Vector2 = 32 bits → jitter sur petits deltas GPS)
+var last_gps_lat: float = 0.0
+var last_gps_lon: float = 0.0
 var target_world_pos: Vector3 = Vector3.ZERO
 var default_cam_pos: Vector3
 
@@ -18,7 +20,8 @@ func _ready():
 	var ui = get_node_or_null("../CanvasLayer/Main_UI")
 	if ui: ui.connect("recenter_requested", Callable(self, "_on_recenter"))
 	
-	last_gps = SpaceTime_Manager.current_gps
+	last_gps_lat = SpaceTime_Manager.current_gps.x
+	last_gps_lon = SpaceTime_Manager.current_gps.y
 	
 	# Initialisation du shader
 	_update_shader_offset()
@@ -50,14 +53,14 @@ func _update_shader_offset():
 		print("⚠️ Attention: InfiniteGround est introuvable dans la scène !")
 
 func _on_gps_updated(lat, lon):
-	var current_gps = Vector2(lat, lon)
-	var delta_lat = (current_gps.x - last_gps.x) * 111320.0
-	var delta_lon = (current_gps.y - last_gps.y) * 111320.0 * cos(deg_to_rad(last_gps.x))
-	
-	# On déplace la destination des objets dans le monde
+	# lat et lon arrivent en float 64-bit depuis le signal
+	# On travaille directement en float pour préserver la précision sub-métrique
+	var delta_lat: float = (lat - last_gps_lat) * 111320.0
+	var delta_lon: float = (lon - last_gps_lon) * 111320.0 * cos(deg_to_rad(last_gps_lat))
 	target_world_pos.x -= delta_lon
 	target_world_pos.z += delta_lat
-	last_gps = current_gps
+	last_gps_lat = lat
+	last_gps_lon = lon
 
 func _on_recenter():
 	var tween = create_tween()

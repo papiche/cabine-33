@@ -1,8 +1,9 @@
 [gd_scene format=3 uid="uid://bw4jts844loja"]
 
 [ext_resource type="Script" uid="uid://b57airbm6mx2w" path="res://scripts/Main_UI.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/AtomAnimation.gd" id="2_anim"]
 
-[node name="Main_UI" type="Control" unique_id=1289307338]
+[node name="Main_UI" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,116 +12,98 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=920277036]
+[node name="AtomAnimation" type="Node2D" parent="."]
+script = ExtResource("2_anim")
+
+[node name="TopBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_bottom = 70.0
+theme_override_constants/separation = 8
+
+[node name="StateLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 17
+text = "⚛ ATOM4LOVE"
+vertical_alignment = 1
+
+[node name="EnergyProgressBar" type="ProgressBar" parent="TopBar"]
+custom_minimum_size = Vector2(130, 28)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="HUDCenter" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.0
+anchor_top = 0.35
+anchor_right = 1.0
+anchor_bottom = 0.65
+mouse_filter = 2
+alignment = 1
+
+[node name="CompassLabel" type="Label" parent="HUDCenter"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "NOEUD PHI: RECHERCHE..."
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="DistanceLabel" type="Label" parent="HUDCenter"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "—"
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="BottomBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -84.0
+offset_bottom = 0.0
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="PhotoBtn" type="Button" parent="BottomBar"]
+custom_minimum_size = Vector2(80, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "📸"
+
+[node name="SyncBtn" type="Button" parent="BottomBar"]
+custom_minimum_size = Vector2(80, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "🔄"
+
+[node name="LogNode" type="RichTextLabel" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=823409945]
-layout_mode = 2
-
-[node name="HeaderPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer" unique_id=645055886]
-layout_mode = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HeaderPanel" unique_id=568433785]
-layout_mode = 2
-
-[node name="StateLabel" type="Label" parent="MarginContainer/VBoxContainer/HeaderPanel/VBoxContainer" unique_id=193423045]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "ÉTAT: CHARGEMENT..."
-horizontal_alignment = 1
-
-[node name="EnergyProgressBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/HeaderPanel/VBoxContainer" unique_id=323623511]
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-
-[node name="Spacer1" type="Control" parent="MarginContainer/VBoxContainer" unique_id=1248062909]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="CompassPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1198725499]
-layout_mode = 2
-
-[node name="CompassLabel" type="Label" parent="MarginContainer/VBoxContainer/CompassPanel" unique_id=2040249753]
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "NOEUD PHI: RECHERCHE..."
-horizontal_alignment = 1
-
-[node name="DistanceLabel" type="Label" parent="MarginContainer/VBoxContainer/CompassPanel" unique_id=1853841735]
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-text = "0.00 km"
-horizontal_alignment = 1
-
-[node name="Spacer2" type="Control" parent="MarginContainer/VBoxContainer" unique_id=1974239722]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="QuickActions" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=301483656]
-layout_mode = 2
-theme_override_constants/separation = 20
-alignment = 1
-
-[node name="PhotoBtn" type="Button" parent="MarginContainer/VBoxContainer/QuickActions" unique_id=2004297568]
-custom_minimum_size = Vector2(140, 50)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "📸 CAPTER"
-
-[node name="SyncBtn" type="Button" parent="MarginContainer/VBoxContainer/QuickActions" unique_id=56797444]
-custom_minimum_size = Vector2(140, 50)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "🔄 RELAY"
-
-[node name="ModuleTabs" type="TabContainer" parent="MarginContainer/VBoxContainer" unique_id=737330240]
-layout_mode = 2
-size_flags_vertical = 3
-current_tab = 0
-
-[node name="Radars" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ModuleTabs" unique_id=1613862233]
-layout_mode = 2
-metadata/_tab_index = 0
-
-[node name="EncounterButton" type="Button" parent="MarginContainer/VBoxContainer/ModuleTabs/Radars" unique_id=1235351493]
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "SIMULER RENCONTRE (ATOM4PEACE)"
-
-[node name="Historique" type="RichTextLabel" parent="MarginContainer/VBoxContainer/ModuleTabs" unique_id=412712533]
-visible = false
-layout_mode = 2
 scroll_following = true
-metadata/_tab_index = 1
 
-[node name="Cabine_33" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ModuleTabs" unique_id=335728445]
+[node name="LegacyCabine" type="VBoxContainer" parent="."]
 visible = false
-layout_mode = 2
-metadata/_tab_index = 2
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 0.5
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/ModuleTabs/Cabine_33" unique_id=1298323936]
-layout_mode = 2
-text = "Vous êtes sur un Nœud. L'interférence est optimale."
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="ThoughtInput" type="TextEdit" parent="MarginContainer/VBoxContainer/ModuleTabs/Cabine_33" unique_id=1969213897]
+[node name="ThoughtInput" type="TextEdit" parent="LegacyCabine"]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 placeholder_text = "Déposez une idée claire dans le vide quantique..."
 wrap_mode = 1
 
-[node name="SendButton" type="Button" parent="MarginContainer/VBoxContainer/ModuleTabs/Cabine_33" unique_id=1682773848]
+[node name="SendButton" type="Button" parent="LegacyCabine"]
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20

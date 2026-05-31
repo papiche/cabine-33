@@ -1,0 +1,17 @@
+{
+  "name": "ATOM4LOVE — Interféromètre Cosmique",
+  "short_name": "ATOM4LOVE",
+  "description": "Découvrez votre empreinte cosmique et testez votre résonance de phase avec d'autres atomes vivants.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000a14",
+  "theme_color": "#f59e0b",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["games", "lifestyle"],
+  "lang": "fr",
+  "scope": "./"
+}
