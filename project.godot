@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Cabine 33 - Astroport HEX"
 run/main_scene="res://scenes/Main_3D.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -33,14 +34,22 @@ Nostr_Identity="*res://autoloads/Nostr_Identity.gd"
 Guide_System="*res://autoloads/Guide_System.gd"
 UI_Theme="*res://autoloads/UI_Theme.gd"
 Kin_Maya="*res://autoloads/Kin_Maya.gd"
+Voice_Sampler="*res://autoloads/Voice_Sampler.gd"
+NostrCrypto="*res://autoloads/NostrCrypto.gd"
 
 [display]
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
+window/size/resizable=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+window/handheld/virtual_keyboard_behavior=2
+
+[audio]
+
+driver/enable_input=true
 
 [rendering]
 

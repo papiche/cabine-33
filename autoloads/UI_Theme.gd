@@ -20,6 +20,10 @@ func _ready():
 	else:
 		current_theme_id = DEFAULT_THEME
 	_setup_emoji_font()
+	# Purger le cache de scale si la fenêtre est redimensionnée (split-screen Android, web)
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree and tree.root:
+		tree.root.size_changed.connect(func(): _cached_vp_scale = -1.0)
 
 func _setup_emoji_font():
 	var emoji_path := "res://fonts/NotoColorEmoji.ttf"
@@ -64,11 +68,206 @@ func make_panel_style(alpha_override: float = -1.0) -> StyleBoxFlat:
 	return s
 
 func make_button_style(use_accent2: bool = false) -> StyleBoxFlat:
+	# Normal : fond sombre + bordure accent → texte accent lisible
 	var t = current()
+	var ac: Color = t["accent2"] if use_accent2 else t["accent"]
+	var bg: Color = t["bg"] as Color
 	var s = StyleBoxFlat.new()
-	s.bg_color = t["accent2"] if use_accent2 else t["accent"]
-	s.set_corner_radius_all(10)
+	s.bg_color = Color(bg.r + 0.05, bg.g + 0.05, bg.b + 0.08, 0.92)
+	s.border_width_left  = 2; s.border_width_right  = 2
+	s.border_width_top   = 2; s.border_width_bottom = 2
+	s.border_color = Color(ac.r, ac.g, ac.b, 0.85)
+	s.set_corner_radius_all(12)
+	s.set_content_margin_all(14)
 	return s
+
+func _make_button_hover_style(use_accent2: bool = false) -> StyleBoxFlat:
+	# Hover / Pressed : fond teinté accent + bordure pleine → texte blanc
+	var t = current()
+	var ac: Color = t["accent2"] if use_accent2 else t["accent"]
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(ac.r * 0.28, ac.g * 0.28, ac.b * 0.28, 0.97)
+	s.border_width_left  = 2; s.border_width_right  = 2
+	s.border_width_top   = 2; s.border_width_bottom = 2
+	s.border_color = Color(ac.r, ac.g, ac.b, 1.0)
+	s.set_corner_radius_all(12)
+	s.set_content_margin_all(14)
+	return s
+
+func create_label(text: String, size: int, color: Color = Color.WHITE) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", _get_scaled_size(size))
+	l.modulate = color
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	return l
+
+# ── Mise à l'échelle adaptative ─────────────────────────────────────────────
+# Référence de design : 720 × 1280 (portrait mobile).
+# Formule : min(largeur/720, hauteur/1280) → scale uniforme qui préserve les
+# proportions quels que soient l'écran (petit téléphone, grand téléphone, tablette).
+# À 720×1280 : scale = 1.0 — tailles de design exactes.
+# À 540×960  : scale = 0.75 — réduit légèrement sur petits écrans.
+# À 1080×1920: scale = 1.5  — agrandit sur grands écrans / tablettes.
+
+const _DESIGN_W: float = 720.0
+const _DESIGN_H: float = 1280.0
+var _cached_vp_scale: float = -1.0
+
+func _get_vp_scale() -> float:
+	if _cached_vp_scale < 0.0:
+		var vps := get_viewport().get_visible_rect().size if get_viewport() else Vector2(_DESIGN_W, _DESIGN_H)
+		_cached_vp_scale = clampf(minf(vps.x / _DESIGN_W, vps.y / _DESIGN_H), 0.75, 1.6)
+	return _cached_vp_scale
+
+# ── Type scale mobile ATOM4LOVE ──────────────────────────────────────────────
+# Facteur d'amplification typographique : les tailles "design" sont des
+# indices sémantiques que l'on projette sur une échelle mobile lisible.
+# Règle : jamais moins de 15px pour un texte visible, 19px pour le corps.
+# Reference Material Design : 16sp corps, 12sp minimum légende.
+#
+# Index → taille mobile réelle (à scale=1.0, 720×1280) :
+#   ≤ 12 (hint/caption)   →  15px
+#   13   (secondary)      →  17px
+#   14   (body small)     →  19px
+#   15   (body)           →  20px
+#   16   (body+)          →  22px
+#   17-19 (label)         →  23px
+#   20-22 (section)       →  27px
+#   23-26 (heading)       →  30px
+#   27+  (title)          →  size × 1.12
+
+func _get_scaled_size(base: int) -> int:
+	var s := _get_vp_scale()
+	var mobile: int
+	if   base <= 12: mobile = 15
+	elif base <= 13: mobile = 17
+	elif base <= 14: mobile = 19
+	elif base <= 15: mobile = 20
+	elif base <= 16: mobile = 22
+	elif base <= 19: mobile = 23
+	elif base <= 22: mobile = 27
+	elif base <= 26: mobile = 30
+	else:            mobile = int(base * 1.12)
+	return maxi(15, int(float(mobile) * s))
+
+func scale_px(px: int) -> int:
+	# Scala une hauteur ou marge en px selon le facteur d'écran
+	return maxi(1, int(px * _get_vp_scale()))
+
+func add_panel_vbox(parent: Node) -> VBoxContainer:
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", make_panel_style())
+	parent.add_child(pc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", scale_px(12))  # +6 vs ancien pour aérer
+	pc.add_child(v)
+	return v
+
+func setup_auto_advance(current: LineEdit, next_field: LineEdit, max_len: int):
+	current.max_length = max_len
+	current.text_changed.connect(func(text: String):
+		if text.length() >= max_len and is_instance_valid(next_field):
+			next_field.grab_focus())
+
+func add_styled_button(parent: Node, text: String, callback: Callable,
+		accent2: bool = false, min_h: int = 62) -> Button:
+	var t := current()
+	var ac: Color = t["accent2"] if accent2 else t["accent"]
+	var btn := Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(0, scale_px(min_h))
+	# Styles : normal (fond sombre + bordure) / hover (fond teinté) / pressed (même que hover)
+	btn.add_theme_stylebox_override("normal",  make_button_style(accent2))
+	btn.add_theme_stylebox_override("hover",   _make_button_hover_style(accent2))
+	btn.add_theme_stylebox_override("pressed", _make_button_hover_style(accent2))
+	btn.add_theme_stylebox_override("focus",   make_button_style(accent2))
+	# Couleurs de texte : accent sur fond sombre, blanc sur hover
+	btn.add_theme_color_override("font_color",         Color(ac.r * 1.1, ac.g * 1.1, ac.b * 1.1).clamp())
+	btn.add_theme_color_override("font_hover_color",   Color.WHITE)
+	btn.add_theme_color_override("font_pressed_color", Color.WHITE)
+	btn.add_theme_color_override("font_focus_color",   Color(ac.r * 1.1, ac.g * 1.1, ac.b * 1.1).clamp())
+	btn.add_theme_font_size_override("font_size", _get_scaled_size(16))
+	if callback.is_valid(): btn.pressed.connect(callback)
+	btn.button_down.connect(func(): vibrate(15))
+	parent.add_child(btn)
+	return btn
+
+func add_section_title(parent: Node, text: String) -> Label:
+	var l := create_label(text, 16, accent_color())
+	parent.add_child(l)
+	return l
+
+func add_label(parent: Node, text: String, size: int = 14,
+		color: Color = Color.TRANSPARENT, wrap: bool = true) -> Label:
+	var l := create_label(text, size, color if color != Color.TRANSPARENT else text_color())
+	if wrap: l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	parent.add_child(l)
+	return l
+
+func add_labeled_input(parent: Node, p_name: String, label_text: String,
+		placeholder: String, min_h: int = 50,
+		kbd: int = LineEdit.KEYBOARD_TYPE_DEFAULT) -> LineEdit:
+	add_label(parent, label_text, 13, text_secondary())
+	return add_input(parent, p_name, placeholder, min_h, kbd)
+
+func add_input(parent: Node, p_name: String, placeholder: String,
+		min_h: int = 68, kbd: int = LineEdit.KEYBOARD_TYPE_DEFAULT) -> LineEdit:
+	var t := current()
+	var bg := t["bg"] as Color
+	var ac := t["accent"] as Color
+	var le := LineEdit.new()
+	le.name = p_name
+	le.placeholder_text = placeholder
+	le.custom_minimum_size = Vector2(0, scale_px(min_h))
+	le.virtual_keyboard_type = kbd
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.add_theme_font_size_override("font_size", _get_scaled_size(16))
+	# Style : fond légèrement plus clair + bordure basse accent (underline)
+	var inp_sb := StyleBoxFlat.new()
+	inp_sb.bg_color = Color(bg.r + 0.07, bg.g + 0.07, bg.b + 0.12, 0.95)
+	inp_sb.border_width_bottom = 2
+	inp_sb.border_color = Color(ac.r, ac.g, ac.b, 0.6)
+	inp_sb.set_corner_radius_all(8)
+	inp_sb.set_content_margin_all(scale_px(12))
+	inp_sb.content_margin_left  = scale_px(14)
+	inp_sb.content_margin_right = scale_px(14)
+	le.add_theme_stylebox_override("normal", inp_sb)
+	# Style focus : bordure basse plus marquée
+	var foc_sb := inp_sb.duplicate() as StyleBoxFlat
+	foc_sb.border_width_bottom = 3
+	foc_sb.border_color = Color(ac.r, ac.g, ac.b, 1.0)
+	foc_sb.bg_color = Color(bg.r + 0.10, bg.g + 0.10, bg.b + 0.16, 1.0)
+	le.add_theme_stylebox_override("focus", foc_sb)
+	# Couleurs texte
+	le.add_theme_color_override("font_color",             t["text"] as Color)
+	le.add_theme_color_override("font_placeholder_color", text_hint())
+	le.add_theme_color_override("caret_color",            ac)
+	le.add_theme_color_override("selection_color",        Color(ac.r, ac.g, ac.b, 0.35))
+	parent.add_child(le)
+	return le
+
+func auto_scale(node: Node):
+	# Réservé aux scènes .tscn chargées sans passer par les builders UI_Theme.
+	# NE PAS appeler sur des arbres déjà construits via add_label/add_input/etc.
+	# (les builders scalent déjà via _get_scaled_size et scale_px).
+	var s := _get_vp_scale()
+	if absf(s - 1.0) < 0.03: return  # pas de scaling si dans 3% de la cible
+	if node is Control:
+		var ctrl := node as Control
+		if ctrl.has_theme_font_size_override("font_size"):
+			var fs := ctrl.get_theme_font_size("font_size")
+			ctrl.add_theme_font_size_override("font_size", maxi(8, int(fs * s)))
+		if ctrl.custom_minimum_size.y > 0.0:
+			ctrl.custom_minimum_size.y = ctrl.custom_minimum_size.y * s
+	for child in node.get_children():
+		auto_scale(child)
+
+func vibrate(duration_ms: int):
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("if(navigator.vibrate) navigator.vibrate(%d);" % duration_ms)
+	else:
+		Input.vibrate_handheld(duration_ms)
 
 func accent_color() -> Color:
 	return current()["accent"]
@@ -85,7 +284,7 @@ func _is_dark() -> bool:
 
 # Texte secondaire — mélange texte+accent, lisible sur tout thème
 func text_secondary() -> Color:
-	return text_color().lerp(accent_color(), 0.4)
+	return text_color().lerp(accent_color(), 0.7)
 
 # Texte atténué (hints, descriptions)
 func text_hint() -> Color:
@@ -99,6 +298,13 @@ func text_positive() -> Color:
 # Texte chaud/doré (Kin Maya, polarité solaire) — accent2 du thème
 func text_warm() -> Color:
 	return current()["accent2"] as Color
+
+# Couleur selon taux de résonance k — source unique pour tous les onglets
+func k_color(k: float) -> Color:
+	if k >= 0.95: return Color(1.0, 0.85, 0.0)   # or — singularité optique
+	if k >= 0.80: return Color(0.0, 1.0, 0.5)    # vert vif
+	if k >= 0.60: return Color(0.0, 0.78, 1.0)   # cyan
+	return Color(0.5, 0.5, 0.5)                   # gris — faible résonance
 
 # ── Thèmes intégrés ───────────────────────────────────────────────────────────
 

@@ -103,7 +103,17 @@ if [ -n "$NOSTR_BUNDLE_SRC" ] && [ -f "$NOSTR_BUNDLE_SRC" ]; then
     fi
 else
     echo "⚠️  nostr.bundle.js introuvable dans UPlanet/earth/"
-    echo "   La signature Schnorr JS utilisera le fallback UPassport."
+    echo "   Tentative de téléchargement depuis u.copylaradio.com (self-hosted)..."
+    BUNDLE_URL="https://u.copylaradio.com/earth/nostr.bundle.js"
+    if wget -q --timeout=15 -O "$BUILD_DIR/nostr.bundle.js" "$BUNDLE_URL" 2>/dev/null || \
+       curl -fsSL --max-time 15 -o "$BUILD_DIR/nostr.bundle.js" "$BUNDLE_URL" 2>/dev/null; then
+        echo "✅ nostr.bundle.js téléchargé et servi localement (évite les blocages CORS)"
+        if ! grep -q 'nostr.bundle.js' "$BUILD_DIR/index.html" 2>/dev/null; then
+            sed -i 's|</head>|<script src="nostr.bundle.js"></script>\n</head>|' "$BUILD_DIR/index.html"
+        fi
+    else
+        echo "⚠️  Impossible de télécharger nostr.bundle.js — fallback UPassport actif."
+    fi
 fi
 
 # ── PWA : manifest.json + service-worker.js ──────────────────
@@ -147,14 +157,22 @@ fi
 
 # Construire la liste des assets à mettre en cache
 CACHED_JS='["./", "./index.html"'
-for f in "$BUILD_DIR"/*.js "$BUILD_DIR"/*.wasm "$BUILD_DIR"/*.pck "$BUILD_DIR"/*.png; do
-    [ -f "$f" ] && CACHED_JS="$CACHED_JS, \"./$(basename "$f")\""
+for f in "$BUILD_DIR"/*.js "$BUILD_DIR"/*.wasm "$BUILD_DIR"/*.pck "$BUILD_DIR"/*.png "$BUILD_DIR"/*.json; do
+    # Exclure service-worker.js (anti-pattern PWA : il ne doit pas se mettre en cache lui-même)
+    if [ -f "$f" ] && [ "$(basename "$f")" != "service-worker.js" ]; then
+        CACHED_JS="$CACHED_JS, \"./$(basename "$f")\""
+    fi
 done
 CACHED_JS="$CACHED_JS]"
 
-# service-worker.js — cache offline-first
+# Hash de build = timestamp pour invalider le cache à chaque publication
+BUILD_HASH=$(date -u +%Y%m%d%H%M)
+_app_ver=$(grep 'version/name=' "$PROJECT_DIR/export_presets.cfg" 2>/dev/null | grep -oP '"[^"]+"' | tr -d '"' | head -1 || echo "1.0")
+
+# service-worker.js — cache offline-first + notification de mise à jour
 cat > "$BUILD_DIR/service-worker.js" << SWEOF
-const CACHE = 'atom4love-v1';
+// ATOM4LOVE PWA Service Worker — v${_app_ver} build ${BUILD_HASH}
+const CACHE = 'atom4love-${_app_ver}-${BUILD_HASH}';
 const ASSETS = ${CACHED_JS};
 
 self.addEventListener('install', ev => {
@@ -168,8 +186,19 @@ self.addEventListener('install', ev => {
 self.addEventListener('activate', ev => {
   ev.waitUntil(
     caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then(ks => Promise.all(
+        ks.filter(k => k !== CACHE).map(k => {
+          console.log('[SW] Suppression ancien cache:', k);
+          return caches.delete(k);
+        })
+      ))
+      .then(() => {
+        // Notifier tous les clients qu'une mise à jour est disponible
+        self.clients.matchAll().then(clients =>
+          clients.forEach(c => c.postMessage({ type: 'SW_UPDATED', version: '${_app_ver}' }))
+        );
+        return self.clients.claim();
+      })
   );
 });
 
@@ -190,7 +219,7 @@ echo "   ✅ service-worker.js créé (cache offline-first)"
 
 # Injecter manifest + SW dans index.html (idempotent)
 if ! grep -q 'manifest.json' "$BUILD_DIR/index.html" 2>/dev/null; then
-    sed -i 's|</head>|  <link rel="manifest" href="manifest.json">\n  <meta name="theme-color" content="#f59e0b">\n  <meta name="mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n  <meta name="apple-mobile-web-app-title" content="ATOM4LOVE">\n  <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("./service-worker.js");</script>\n</head>|' \
+    sed -i 's|</head>|  <link rel="manifest" href="manifest.json">\n  <meta name="theme-color" content="#f59e0b">\n  <meta name="mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n  <meta name="apple-mobile-web-app-title" content="ATOM4LOVE">\n  <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./service-worker.js");navigator.serviceWorker.addEventListener("message",function(e){if(e.data\&\&e.data.type==="SW_UPDATED"){var b=document.createElement("div");b.style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#059669;color:#fff;text-align:center;padding:10px;font-family:sans-serif;font-size:14px;cursor:pointer";b.textContent="⚛ Nouvelle version ATOM4LOVE disponible — Tapez pour recharger";b.onclick=function(){window.location.reload()};document.body.appendChild(b);}});}</script>\n</head>|' \
         "$BUILD_DIR/index.html"
     echo "   ✅ PWA injecté dans index.html (manifest + SW + apple-meta)"
 else

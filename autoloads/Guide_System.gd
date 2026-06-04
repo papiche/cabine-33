@@ -62,7 +62,12 @@ func _show_current_step():
 
 func _close_guide():
 	if is_instance_valid(_panel):
-		_panel.queue_free()
+		# Détruire aussi le CanvasLayer parent créé dans _rebuild_panel
+		var parent := _panel.get_parent()
+		if is_instance_valid(parent) and parent is CanvasLayer and parent.name == "GuideCanvasLayer":
+			parent.queue_free()
+		else:
+			_panel.queue_free()
 		_panel = null
 
 func _rebuild_panel(title: String, text: String):
@@ -153,7 +158,13 @@ func _rebuild_panel(title: String, text: String):
 	btn_skip.connect("pressed", Callable(self, "_close_guide"))
 	vbox.add_child(btn_skip)
 
-	# Ajouter au nœud racine de la scène courante
-	var tree = Engine.get_main_loop()
-	if tree and tree.current_scene:
-		tree.current_scene.add_child(_panel)
+	# Encapsuler dans un CanvasLayer à haut z-index pour apparaître au-dessus de toute l'UI
+	var tree = Engine.get_main_loop() as SceneTree
+	if tree and is_instance_valid(tree.current_scene):
+		var canvas := CanvasLayer.new()
+		canvas.layer = 150   # au-dessus des menus (z≈0..100) et de l'aide (z=92)
+		canvas.name  = "GuideCanvasLayer"
+		canvas.add_child(_panel)
+		tree.current_scene.add_child(canvas)
+	else:
+		push_error("Guide_System: scène courante invalide, panel non ajouté")

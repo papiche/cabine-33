@@ -1,5 +1,6 @@
 Categories:
   - Games
+  - Science & Education
 License: AGPL-3.0-only
 AuthorName: Fred
 AuthorEmail: support@qo-op.com
@@ -12,21 +13,37 @@ RepoType: git
 Repo: https://github.com/qo-op/cabine-33
 
 Builds:
-  - versionName: '1.0'
-    versionCode: 1
-    commit: v1.0
+  - versionName: '1.2.0'
+    versionCode: 120
+    commit: v1.2.0
     subdir: .
     sudo:
-      - apt-get install -y wget unzip openjdk-21-jdk
+      - apt-get update
+      - apt-get install -y wget unzip
     init:
+      # ── 1. Godot Headless ────────────────────────────────────────────────────
       - wget -q https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip -O /tmp/godot.zip
       - unzip -q /tmp/godot.zip -d /tmp/
       - chmod +x /tmp/Godot_v4.6.3-stable_linux.x86_64
+      # ── 2. Export Templates Android (REQUIS — sans eux --export-release échoue)
+      - wget -q https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_export_templates.tpz -O /tmp/templates.tpz
+      - mkdir -p ~/.local/share/godot/export_templates/4.6.3.stable/
+      - unzip -q /tmp/templates.tpz -d /tmp/tpz/
+      - cp /tmp/tpz/templates/* ~/.local/share/godot/export_templates/4.6.3.stable/
+      # ── 3. editor_settings-4.tres (SDK Android + JDK — Godot headless en a besoin)
+      - mkdir -p ~/.config/godot/
+      - printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "${ANDROID_HOME:-/usr/lib/android-sdk}" "${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}" > ~/.config/godot/editor_settings-4.tres
+      # ── 4. Sécurité : neutraliser tout chemin keystore local résiduel
+      - sed -i 's|keystore/debug="[^"]*"|keystore/debug=""|' export_presets.cfg
+      - sed -i 's|keystore/release="[^"]*"|keystore/release=""|' export_presets.cfg
+      - sed -i 's|keystore/release_user="[^"]*"|keystore/release_user=""|' export_presets.cfg
+      - sed -i 's|keystore/release_password="[^"]*"|keystore/release_password=""|' export_presets.cfg
     build:
+      # F-Droid signe l'APK avec sa propre clé après ce build
       - /tmp/Godot_v4.6.3-stable_linux.x86_64 --headless --export-release "Android" atom4love.apk
     output: atom4love.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: '1.0'
-CurrentVersionCode: 1
+CurrentVersion: '1.2.0'
+CurrentVersionCode: 120

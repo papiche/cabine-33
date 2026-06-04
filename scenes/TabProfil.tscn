@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://cx4profil0001"]
+
+[node name="TabProfil" type="ScrollContainer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+vertical_scroll_mode = 1
+horizontal_scroll_mode = 0
+
+[node name="TabMargin" type="MarginContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="InnerVBox" type="VBoxContainer" parent="TabMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14

@@ -30,8 +30,20 @@ fi
 
 echo "✅ Godot détecté : $GODOT_BIN"
 
+# ── Vérification concordance de version ────────────────────────────────────────
+_proj_ver=$(grep 'config/version' "$PROJECT_DIR/project.godot" 2>/dev/null | grep -oP '"[^"]+"' | tr -d '"' | head -1 || true)
+_preset_ver=$(grep 'version/name=' "$PROJECT_DIR/export_presets.cfg" 2>/dev/null | grep -oP '"[^"]+"' | tr -d '"' | head -1 || true)
+if [[ -n "$_proj_ver" && -n "$_preset_ver" && "$_proj_ver" != "$_preset_ver" ]]; then
+    echo ""
+    echo "⚠️  VERSION MISMATCH !"
+    echo "   project.godot config/version = \"$_proj_ver\""
+    echo "   export_presets.cfg version/name = \"$_preset_ver\""
+    echo "   Corrigez avant de publier (pour éviter de shipper une v1.2 étiquetée v1.1)."
+    echo ""
+fi
+
 # Récupérer la version exacte
-GODOT_VERSION=$("$GODOT_BIN" --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+\.\w+' | head -1)
+GODOT_VERSION=$("$GODOT_BIN" --headless --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+\.\w+' | head -1)
 if [ -z "$GODOT_VERSION" ]; then
     GODOT_VERSION="4.6.3.stable"
 fi
@@ -75,9 +87,15 @@ if [ ! -f "$ANDROID_TEMPLATE_DEBUG" ]; then
     echo ""
     echo "⚠️  Templates Android manquants : $TEMPLATES_DIR"
     echo ""
-    echo "   Option 1 — Téléchargement automatique (≈1.1 Go) :"
-    echo "   Voulez-vous télécharger les templates maintenant ? [o/N]"
-    read -r REPLY
+    # Mode non-interactif : cron ou variable d'environnement
+    if [[ ! -t 0 || "${ATOM4LOVE_AUTO_DOWNLOAD:-}" == "1" ]]; then
+        REPLY="y"
+        echo "   Mode non-interactif : téléchargement automatique..."
+    else
+        echo "   Option 1 — Téléchargement automatique (≈1.1 Go) :"
+        echo "   Voulez-vous télécharger les templates maintenant ? [o/N]"
+        read -r REPLY
+    fi
     if [[ "$REPLY" =~ ^[oOyY]$ ]]; then
         TPZ_URL="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
         TPZ_FILE="/tmp/godot_templates_${GODOT_RELEASE}.tpz"
@@ -137,6 +155,28 @@ echo ""
 echo "📦 Construction APK Android..."
 mkdir -p "$BUILD_DIR"
 
+# ── Injection du keystore debug dans export_presets.cfg ──────────────────────
+# export_presets.cfg est versionné avec des champs vides (portable / F-Droid / CI).
+# On injecte le chemin local avant l'export, puis on restaure après.
+# Godot 4 requiert : soit les 3 champs (debug/user/password) configurés, soit les 3 vides.
+PRESETS_CFG="$PROJECT_DIR/export_presets.cfg"
+PRESETS_BACKUP="$PROJECT_DIR/export_presets.cfg.bak"
+
+cp "$PRESETS_CFG" "$PRESETS_BACKUP"
+python3 - <<EOF
+import re, sys
+cfg = open("$PRESETS_CFG").read()
+cfg = re.sub(r'keystore/debug="[^"]*"',          'keystore/debug="$KEYSTORE"',          cfg)
+cfg = re.sub(r'keystore/debug_user="[^"]*"',     'keystore/debug_user="androiddebugkey"', cfg)
+cfg = re.sub(r'keystore/debug_password="[^"]*"', 'keystore/debug_password="android"',    cfg)
+open("$PRESETS_CFG", "w").write(cfg)
+EOF
+echo "✅ Keystore debug injecté : $KEYSTORE"
+
+# Restaurer export_presets.cfg à sa version vide après chaque build (trap)
+_restore_presets() { cp "$PRESETS_BACKUP" "$PRESETS_CFG" && rm -f "$PRESETS_BACKUP"; }
+trap _restore_presets EXIT
+
 # Export debug APK
 "$GODOT_BIN" --headless \
     --path "$PROJECT_DIR" \
@@ -161,4 +201,10 @@ echo "📂 Fichiers dans $BUILD_DIR :"
 ls -lh "$BUILD_DIR/"
 echo ""
 echo "📲 Installation sur appareil connecté (adb) :"
-echo "   adb install -r $BUILD_DIR/${APK_NAME}_debug.apk"
+echo "   adb install -r --no-incremental $BUILD_DIR/${APK_NAME}_debug.apk"
+
+echo "Logs Android — commandes utiles"
+echo ""
+echo "adb logcat -s Godot                          # tout ce que Godot affiche"
+echo "adb logcat -s Godot | grep "ATOM\|NOSTR\|φ"  # filtré"
+echo "adb logcat -v time -s Godot                  # avec horodatage"

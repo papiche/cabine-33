@@ -1,1 +1,1 @@
-cpcode godot sh gd uid md tscn json ./
+cpcode godot sh gd gdshader uid md tscn json yml cfg ./

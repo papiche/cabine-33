@@ -17,7 +17,6 @@ func process_encounter(my_pubkey: String, other_pubkey: String, current_gps: Vec
 		"start_gps": current_gps, "spin": spin_hash,
 		"k": 0.0, "phase_delta": 0.0, "other_sex": -1
 	}
-	SpaceTime_Manager.consume_energy(1.0)
 	emit_signal("encounter_started", other_pubkey, spin_hash)
 
 func process_resonance_encounter(my_pubkey: String, other_pubkey: String,
@@ -37,9 +36,12 @@ func process_resonance_encounter(my_pubkey: String, other_pubkey: String,
 		"k": k, "phase_delta": phase_delta,
 		"other_phase": other_phase, "other_sex": other_sex
 	}
-	SpaceTime_Manager.consume_energy(1.0)
 	emit_signal("encounter_started", other_pubkey, spin_hash)
 	emit_signal("resonance_detected", other_pubkey, k, is_sing)
+
+	# Publier la résonance sur NOSTR (Kind 7) — kin_oracle.sh lit ces événements
+	# pour construire le graphe de résonance et alimenter les newsletters.
+	Nostr_Identity.publish_kind7_resonance(other_pubkey, k)
 
 	if k >= SUPER_COHERENCE_K:
 		_trigger_super_coherence_vibration()
@@ -48,20 +50,20 @@ func _trigger_super_coherence_vibration():
 	# Vibration rythmique signalant le "Match Quantique"
 	# Fréquence basée sur le rapport Φ (30ms ≈ 1/33Hz)
 	for i in range(3):
+		if not is_inside_tree(): return
 		Input.vibrate_handheld(30)
 		await get_tree().create_timer(1.0 / Phi2X_Math.F_PHI).timeout
+		if not is_inside_tree(): return
 		Input.vibrate_handheld(60)
 		await get_tree().create_timer(0.2).timeout
 
 func check_bonds_status(current_gps: Vector2):
-	var bonds_to_break = []
+	var bonds_to_break: Array = []
 	for pubkey in active_bonds.keys():
 		var bond = active_bonds[pubkey]
-		var dist = Phi2X_Math.haversine_distance(
-			current_gps.x, current_gps.y,
-			bond["start_gps"].x, bond["start_gps"].y
-		)
-		if dist > FORK_DISTANCE_KM:
+		var sg: Vector2 = bond["start_gps"]
+		if not Phi2X_Math.is_in_range(current_gps.x, current_gps.y, sg.x, sg.y, FORK_DISTANCE_KM):
+			var dist := Phi2X_Math.haversine_distance(current_gps.x, current_gps.y, sg.x, sg.y)
 			emit_signal("reality_forked", pubkey, dist)
 			bonds_to_break.append(pubkey)
 	for pubkey in bonds_to_break:
@@ -72,9 +74,10 @@ func get_best_resonance() -> Dictionary:
 	var best = {"pubkey": "", "k": 0.0, "is_singularity": false, "other_sex": -1}
 	for pubkey in active_bonds:
 		var bond = active_bonds[pubkey]
-		if bond.get("k", 0.0) > best["k"]:
+		var k: float = bond.get("k", 0.0)
+		if k > best["k"]:
 			best["pubkey"] = pubkey
-			best["k"] = bond["k"]
-			best["is_singularity"] = bond.get("k", 0.0) >= SUPER_COHERENCE_K
+			best["k"] = k
+			best["is_singularity"] = k >= SUPER_COHERENCE_K
 			best["other_sex"] = bond.get("other_sex", -1)
 	return best

@@ -4,16 +4,16 @@
 
 shader_type canvas_item;
 
-const float PHI_CONST = 1.61803398875;
-const float TAU_CONST = 6.28318530718;
+const float PHI_CONST = 1.6180340;
+const float TAU_CONST = 6.2831853;
 
 // Phases personnelles des deux atomes
 uniform float phase_a : hint_range(0.0, 6.3) = 0.0;
 uniform float phase_b : hint_range(0.0, 6.3) = 1.57;
 
 // Polarité : 0 = Onde Φ (Lumière/Or), 1 = Onde Octave (Son/Bleu)
-uniform int sex_a : hint_range(0, 1) = 0;
-uniform int sex_b : hint_range(0, 1) = 1;
+uniform int polarity_a : hint_range(0, 1) = 0;
+uniform int polarity_b : hint_range(0, 1) = 1;
 
 // Taux de résonance k ∈ [0, 1]
 uniform float resonance_k : hint_range(0.0, 1.0) = 0.5;
@@ -51,11 +51,11 @@ void fragment() {
 	float t = TIME;
 
 	// Calcul des ondes selon la polarité (sex)
-	float w_a = (sex_a == 0)
+	float w_a = (polarity_a == 0)
 		? wave_phi(uv, t, phase_a)
 		: wave_octave(uv, t, phase_a);
 
-	float w_b = (sex_b == 0)
+	float w_b = (polarity_b == 0)
 		? wave_phi(uv, t, phase_b)
 		: wave_octave(uv, t, phase_b);
 
@@ -67,8 +67,8 @@ void fragment() {
 	vec3 col_phi  = vec3(1.0, 0.85, 0.1);    // Or  — Onde Φ
 	vec3 col_oct  = vec3(0.1, 0.55, 1.0);    // Bleu — Onde Octave
 
-	vec3 col_a = (sex_a == 0) ? col_phi : col_oct;
-	vec3 col_b = (sex_b == 0) ? col_phi : col_oct;
+	vec3 col_a = (polarity_a == 0) ? col_phi : col_oct;
+	vec3 col_b = (polarity_b == 0) ? col_phi : col_oct;
 
 	// Moiré d'interférence
 	vec3 color = mix(col_a, col_b, 0.5 + interference * 0.5);

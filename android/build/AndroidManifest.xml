@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AndroidManifest.xml custom pour ATOM4LOVE — deep-linking + intent-filters -->
+<!-- Ce fichier est mergé avec celui de Godot lors du build Gradle -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name=".GodotApp"
+            android:launchMode="singleTask"
+            tools:node="merge">
+
+            <!-- Deep-link : u.copylaradio.com/atom4love?... ouvre l'APK installée -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="u.copylaradio.com"
+                      android:pathPrefix="/atom4love" />
+            </intent-filter>
+
+            <!-- Schéma custom : atom4love://match?npub=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="atom4love" />
+            </intent-filter>
+
+        </activity>
+    </application>
+
+</manifest>

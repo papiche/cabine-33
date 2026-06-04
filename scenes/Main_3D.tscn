@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://csib43dfj2vkr"]
 
 [ext_resource type="Script" uid="uid://3xl8qoydb55h" path="res://scripts/World_3D.gd" id="1_world"]
-[ext_resource type="PackedScene" path="res://scenes/Main_UI.tscn" id="2_ui"]
+[ext_resource type="PackedScene" uid="uid://bw4jts844loja" path="res://scenes/Main_UI.tscn" id="2_ui"]
 [ext_resource type="Shader" uid="uid://bsrtbb5e6p54s" path="res://shaders/hex_grid.gdshader" id="3_glth1"]
 
 [sub_resource type="Environment" id="Environment_glth1"]
@@ -25,9 +25,18 @@ height = 2.0
 render_priority = 0
 shader = ExtResource("3_glth1")
 shader_parameter/grid_color = Color(0, 0.5, 1, 1)
+shader_parameter/horizon_color = Color(0.3, 0, 1, 1)
 shader_parameter/line_width = 0.05
 shader_parameter/hex_size = 2.0
 shader_parameter/world_offset = Vector3(0, 0, 0)
+shader_parameter/pulse_speed = 1.0
+shader_parameter/camera_pos = Vector3(0, 0, 0)
+shader_parameter/pentagon_near1 = Vector3(0, 0, 99999)
+shader_parameter/pentagon_near2 = Vector3(99999, 0, 0)
+shader_parameter/planck_intensity = 0.4
+shader_parameter/fade_near = 8.0
+shader_parameter/fade_far = 90.0
+shader_parameter/glow_intensity = 0.0
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_f0ufm"]
 material = SubResource("ShaderMaterial_jcd17")
