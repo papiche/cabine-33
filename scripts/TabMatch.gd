@@ -107,6 +107,11 @@ func _on_load_self():
 		if di: di.text = "%04d-%02d-%02d %02d:%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
 	if Player_Origin.birth_lat != 0.0 and li:
 		li.text = "%.4f, %.4f" % [Player_Origin.birth_lat, Player_Origin.birth_lon]
+	var bp := find_child("TestSexA_0", true, false) as Button
+	var bo := find_child("TestSexA_1", true, false) as Button
+	if bp and bo:
+		bp.button_pressed = (Player_Origin.biological_sex == 0)
+		bo.button_pressed = (Player_Origin.biological_sex == 1)
 	_refresh()
 
 func _on_field_changed(_v: String): _refresh()

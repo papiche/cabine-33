@@ -203,7 +203,7 @@ func _extract_and_emit(pcm: PackedFloat32Array):
 
 	# 1. Premier ZC montant sur le signal FILTRÉ (robuste aux harmoniques)
 	var start := 512
-	while start < lpf.size() - 2000:
+	while start < lpf.size() - (WT_SIZE + 100):
 		if lpf[start - 1] < 0.0 and lpf[start] >= 0.0: break
 		start += 1
 
@@ -215,19 +215,17 @@ func _extract_and_emit(pcm: PackedFloat32Array):
 		end_idx += 1
 
 	var cycle_length := end_idx - start
-	# Fallback : si la détection échoue (signal trop bruité, pas de fondamentale claire),
-	# utiliser une longueur correspondant à 440 Hz à 48 kHz (109 samples ≈ la 4)
-	var sample_rate := 48000.0  # hypothèse conservative (Web = 48k, Android varie)
-	if cycle_length < 30 or cycle_length > 2000:
-		cycle_length = int(sample_rate / 440.0)  # 440 Hz = La3, période neutre
-		end_idx = start + cycle_length
+	
+	# Compensation du déphasage du filtre LPF
+	# Retard théorique ≈ (1 - alpha) / alpha
+	var phase_delay := int((1.0 - alpha) / alpha)
+	var compensated_start := maxi(0, start - phase_delay)
 
-	# 3. Ré-échantillonner le cycle détecté en WT_SIZE points (interpolation linéaire)
-	# Cela préserve le timbre naturel (formants) tout en permettant la lecture à ωbio
+	# 3. Ré-échantillonner le cycle (avec compensated_start)
 	var wt := PackedFloat32Array()
 	wt.resize(WT_SIZE)
 	for i in range(WT_SIZE):
-		var src_exact := start + (float(i) / float(WT_SIZE)) * float(cycle_length)
+		var src_exact := compensated_start + (float(i) / float(WT_SIZE)) * float(cycle_length)
 		var idx := int(src_exact)
 		var frac := src_exact - float(idx)
 		var s0 := norm[idx]     if idx     < norm.size() else 0.0

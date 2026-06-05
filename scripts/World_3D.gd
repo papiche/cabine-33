@@ -82,7 +82,7 @@ func _process(delta):
 	# Culling / alpha / scale calculés à 10Hz seulement (coûteux sur 500 photos)
 	_memory_pulse_acc += delta
 	if _memory_pulse_acc >= 0.1:
-		_memory_pulse_acc = 0.0
+		_memory_pulse_acc = fmod(_memory_pulse_acc, 0.1) # Conserve le delta résiduel
 		_update_memory_culling()
 
 # ── Bobbing 60Hz — mouvement vertical fluide (pas de culling ici) ──────────
@@ -265,7 +265,7 @@ func _place_memory_node(mem: Dictionary):
 	var offset := _gps_to_world_offset(last_gps_lat, last_gps_lon, m_lat, m_lon)
 	# Base height + random offset pour éviter les superpositions
 	var base_y := 1.8 + randf_range(-0.3, 0.3)
-	var pos := Vector3(offset.x, base_y, offset.z)
+	var pos := Vector3(offset.x, base_y, offset.z) - target_world_pos
 
 	var pivot := Node3D.new()
 	pivot.name = "MemoryPivot"
@@ -299,7 +299,7 @@ func _on_snapshot_taken(tex: Texture2D, lat: float, lon: float,
 		_azimut: float, _pitch: float, fov: float):
 	var offset := _gps_to_world_offset(last_gps_lat, last_gps_lon, lat, lon)
 	var base_y := 2.0
-	var pos := Vector3(offset.x, base_y, offset.z)
+	var pos := Vector3(offset.x, base_y, offset.z) - target_world_pos
 
 	var pivot := Node3D.new()
 	pivot.name = "MemoryPivot"

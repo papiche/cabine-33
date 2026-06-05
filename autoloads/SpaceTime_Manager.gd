@@ -41,7 +41,7 @@ func _notification(what: int):
 		if _suspend_unix > 0:
 			var elapsed := int(Time.get_unix_time_from_system()) - _suspend_unix
 			# >10 min de veille : sync (jamais purge directe)
-			if elapsed > 600:
+			if elapsed > 600 and current_state == TimeState.STATE_NIGHT_DREAM:
 				_trigger_night_sync()
 		_suspend_unix = 0
 		_check_time_cycle()

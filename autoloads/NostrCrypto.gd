@@ -107,16 +107,17 @@ func _hex_to_limbs(h: String) -> Array:
 	return _bytes_to_limbs(b)
 
 func _bytes_to_limbs(b: PackedByteArray) -> Array:
-	# Convert 32-byte big-endian to 10 little-endian 26-bit limbs
-	var n_be: int = 0
-	var result := _zero()
-	# Process byte-by-byte into a big number, then extract limbs
-	# Use shift approach: build up from MSB
 	var acc: Array = _zero()
-	for i in range(b.size()):
-		# acc = acc * 256 + b[i]
-		acc = _limb_mul_small(acc, 256)
-		acc = _limb_add_small(acc, b[i])
+	var i := 0
+	while i < b.size():
+		var chunk_size = mini(3, b.size() - i)
+		var val := 0
+		for j in range(chunk_size):
+			val = (val << 8) | b[i + j]
+		# Multiplication par 2^(8 * chunk_size)
+		acc = _limb_mul_small(acc, 1 << (chunk_size * 8))
+		acc = _limb_add_small(acc, val)
+		i += chunk_size
 	return acc
 
 func _limbs_to_bytes(a: Array) -> PackedByteArray:

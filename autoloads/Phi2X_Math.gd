@@ -75,7 +75,11 @@ func compute_resonance_k(phase_a: float, phase_b: float) -> float:
 	return 1.0 / (1.0 + abs(sin(delta)))
 
 func is_optical_singularity(phase_a: float, phase_b: float, tolerance: float = 0.05) -> bool:
-	var delta: float = abs(phase_a - phase_b)
+	# Trouve la plus petite distance sur le cercle
+	var delta: float = fposmod(abs(phase_a - phase_b), TAU)
+	if delta > PI: 
+		delta = TAU - delta
+		
 	return delta < tolerance or abs(delta - PI) < tolerance
 
 func compute_omega_bio(height_cm: float, weight_kg: float, sex: int) -> float:

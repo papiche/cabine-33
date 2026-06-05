@@ -857,6 +857,11 @@ func _fill_synth_buffer():
 		var bi_target: float = db_to_linear(-12.0)
 		var inc_l := Phi2X_Math.F_WATER / sr * TAU
 		var inc_r := (Phi2X_Math.F_WATER + Phi2X_Math.F_PHI) / sr * TAU
+		# Précalculer la rampe du LFO pour le bloc audio entier
+		var lfo_start := 0.85 + 0.15 * sin(_lfo_phase)
+		var lfo_end   := 0.85 + 0.15 * sin(_lfo_phase + lfo_inc * frames)
+		var lfo_step  := (lfo_end - lfo_start) / frames
+		var current_lfo := lfo_start		
 		for _i in range(frames):
 			bi_amp = lerpf(bi_amp, bi_target, 0.0005)
 			_synth_pb.push_frame(Vector2(sin(_synth_phase) * 0.18, sin(_synth_phase_r) * 0.18) * bi_amp)
@@ -2200,8 +2205,12 @@ func _on_hook_completed(data: Dictionary):
 	var _nav := find_child("BottomNavBar", true, false)
 	if _nav: _nav.show()
 	if data.get("action", "") == "forge":
-		if is_instance_valid(_tab_profil): _tab_profil.prefill_from_hook(data)
-		if is_instance_valid(_hook_overlay): _hook_overlay.queue_free(); _hook_overlay = null
+		if is_instance_valid(_tab_profil): 
+			_tab_profil.prefill_from_hook(data)
+			_rebuild_tab(TAB_PROFIL)
+		if is_instance_valid(_hook_overlay): 
+			_hook_overlay.queue_free(); 
+			_hook_overlay = null
 		var _ka := Kin_Maya.calc_kin_unix(b_unix)
 		var _anim := find_child("AtomAnimation", true, false) as Node2D
 		if _anim and _anim.has_method("set_kin"): _anim.set_kin(_ka, {})

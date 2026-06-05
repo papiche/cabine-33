@@ -25,9 +25,11 @@ const KIN_SUMA      := {30:2,35:7,40:12,45:17,50:22,3:27,8:32,13:37,18:42,23:47,
 
 func calc_kin(year: int, month: int, day: int) -> Dictionary:
 	if month < 1 or month > 12 or day < 1 or day > 31: return {}
-	var kin: int = day + int(KIN_MESES[month - 1]) + int(KIN_SUMA.get(year % 52, 0))
-	if kin > 260: kin -= 260
-	if kin <= 0:  kin += 260
+	
+	var sum_val: int = day + int(KIN_MESES[month - 1]) + int(KIN_SUMA.get(year % 52, 0))
+	var kin: int = sum_val % 260
+	if kin == 0: kin = 260
+		
 	var gi: int = (kin - 1) % 20
 	var ti: int = (kin - 1) % 13
 	var ci: int = int((kin - 1) / 13) % 5

@@ -53,7 +53,7 @@ func _trigger_super_coherence_vibration():
 		if not is_inside_tree(): return
 		Input.vibrate_handheld(30)
 		await get_tree().create_timer(1.0 / Phi2X_Math.F_PHI).timeout
-		if not is_inside_tree(): return
+		if not is_instance_valid(self) or not is_inside_tree(): return
 		Input.vibrate_handheld(60)
 		await get_tree().create_timer(0.2).timeout
 
@@ -63,9 +63,14 @@ func check_bonds_status(current_gps: Vector2):
 		var bond = active_bonds[pubkey]
 		var sg: Vector2 = bond["start_gps"]
 		if not Phi2X_Math.is_in_range(current_gps.x, current_gps.y, sg.x, sg.y, FORK_DISTANCE_KM):
-			var dist := Phi2X_Math.haversine_distance(current_gps.x, current_gps.y, sg.x, sg.y)
-			emit_signal("reality_forked", pubkey, dist)
-			bonds_to_break.append(pubkey)
+			# REMPLACER LES 3 LIGNES SUIVANTES PAR CE BLOC :
+			if Loca_Scanner.discovered_atoms.has(pubkey):
+				# Ils marchent ensemble : on met à jour l'ancre !
+				bond["start_gps"] = current_gps
+			else:
+				var dist := Phi2X_Math.haversine_distance(current_gps.x, current_gps.y, sg.x, sg.y)
+				emit_signal("reality_forked", pubkey, dist)
+				bonds_to_break.append(pubkey)
 	for pubkey in bonds_to_break:
 		active_bonds.erase(pubkey)
 
