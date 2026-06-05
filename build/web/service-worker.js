@@ -1,5 +1,6 @@
-const CACHE = 'atom4love-v1';
-const ASSETS = ["./", "./index.html", "./index.audio.position.worklet.js", "./index.audio.worklet.js", "./index.js", "./nostr.bundle.js", "./service-worker.js", "./index.wasm", "./index.pck", "./icon.png", "./index.apple-touch-icon.png", "./index.icon.png", "./index.png"];
+// ATOM4LOVE PWA Service Worker — v1.0 build 202606050125
+const CACHE = 'atom4love-1.0-202606050125';
+const ASSETS = ["./", "./index.html", "./index.audio.position.worklet.js", "./index.audio.worklet.js", "./index.js", "./nostr.bundle.js", "./index.wasm", "./index.pck", "./icon.png", "./index.apple-touch-icon.png", "./index.icon.png", "./index.png", "./manifest.json"];
 
 self.addEventListener('install', ev => {
   ev.waitUntil(
@@ -12,8 +13,19 @@ self.addEventListener('install', ev => {
 self.addEventListener('activate', ev => {
   ev.waitUntil(
     caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then(ks => Promise.all(
+        ks.filter(k => k !== CACHE).map(k => {
+          console.log('[SW] Suppression ancien cache:', k);
+          return caches.delete(k);
+        })
+      ))
+      .then(() => {
+        // Notifier tous les clients qu'une mise à jour est disponible
+        self.clients.matchAll().then(clients =>
+          clients.forEach(c => c.postMessage({ type: 'SW_UPDATED', version: '1.0' }))
+        );
+        return self.clients.claim();
+      })
   );
 });
 

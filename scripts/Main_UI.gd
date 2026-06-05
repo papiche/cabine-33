@@ -1865,7 +1865,7 @@ func _show_aide():
 	# Instancier AideScreen.gd pour accéder à _build_content(vbox)
 	var aide_script := load("res://scripts/AideScreen.gd")
 	if aide_script:
-		var aide_instance := (aide_script as GDScript).new()
+		var aide_instance = (aide_script as GDScript).new()
 		if aide_instance.has_method("_build_content"):
 			aide_instance._build_content(sv)
 		else:
