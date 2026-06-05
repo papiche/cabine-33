@@ -857,11 +857,6 @@ func _fill_synth_buffer():
 		var bi_target: float = db_to_linear(-12.0)
 		var inc_l := Phi2X_Math.F_WATER / sr * TAU
 		var inc_r := (Phi2X_Math.F_WATER + Phi2X_Math.F_PHI) / sr * TAU
-		# Précalculer la rampe du LFO pour le bloc audio entier
-		var lfo_start := 0.85 + 0.15 * sin(_lfo_phase)
-		var lfo_end   := 0.85 + 0.15 * sin(_lfo_phase + lfo_inc * frames)
-		var lfo_step  := (lfo_end - lfo_start) / frames
-		var current_lfo := lfo_start		
 		for _i in range(frames):
 			bi_amp = lerpf(bi_amp, bi_target, 0.0005)
 			_synth_pb.push_frame(Vector2(sin(_synth_phase) * 0.18, sin(_synth_phase_r) * 0.18) * bi_amp)

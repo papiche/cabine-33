@@ -130,7 +130,7 @@ func _update_memory_culling():
 							call_deferred("_apply_memory_texture", sprite_ref, img)
 						# Si load échoue, remettre is_loaded=false pour permettre une nouvelle tentative
 						else:
-							call_deferred(func(): if is_instance_valid(pivot_ref): pivot_ref.set_meta("is_loaded", false))
+							(func(): if is_instance_valid(pivot_ref): pivot_ref.set_meta("is_loaded", false)).call_deferred()
 					)
 		else:
 			sprite.visible = false  # retire le draw call GPU — alpha=0 dessinait quand même

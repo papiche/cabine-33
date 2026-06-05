@@ -277,7 +277,7 @@ func _scalar_pow(base: Array, exp: Array) -> Array:
 func _jac_double(P: Array) -> Array:
 	# dbl-2009-l formulas (a=0 pour secp256k1)
 	if P.is_empty(): return []
-	var X := P[0]; var Y := P[1]; var Z := P[2]
+	var X: Array = P[0]; var Y: Array = P[1]; var Z: Array = P[2]
 	if _limbs_is_zero(Y) or _limbs_is_zero(Z): return []
 	var A := _field_mul(X, X)                          # X²
 	var B := _field_mul(Y, Y)                          # Y²
@@ -299,7 +299,7 @@ func _jac_double(P: Array) -> Array:
 func _jac_add_affine(P: Array, Qx: Array, Qy: Array) -> Array:
 	# add-2007-bl (P Jacobian, Q affine) — pas d'inversion requise
 	if P.is_empty(): return [Qx, Qy, _one()]
-	var X1 := P[0]; var Y1 := P[1]; var Z1 := P[2]
+	var X1: Array = P[0]; var Y1: Array = P[1]; var Z1: Array = P[2]
 	var Z1sq := _field_mul(Z1, Z1)                     # Z1²
 	var Z1cu := _field_mul(Z1sq, Z1)                   # Z1³
 	var U2   := _field_mul(Qx, Z1sq)                   # Q.x * Z1²
@@ -320,7 +320,7 @@ func _jac_add_affine(P: Array, Qx: Array, Qy: Array) -> Array:
 func _jac_to_affine(P: Array) -> Array:
 	# Conversion Jacobien → affine : seule inversion de toute la multiplication
 	if P.is_empty(): return []
-	var Z := P[2]
+	var Z: Array = P[2]
 	if _limbs_is_zero(Z): return []
 	var Zi  := _field_inv(Z)
 	var Zi2 := _field_mul(Zi, Zi)
@@ -331,8 +331,8 @@ func _jac_add(P: Array, Q: Array) -> Array:
 	# Addition Jacobien+Jacobien — add-2007-bl — 12 field_mul, zéro inversion
 	if P.is_empty(): return Q
 	if Q.is_empty(): return P
-	var X1 := P[0]; var Y1 := P[1]; var Z1 := P[2]
-	var X2 := Q[0]; var Y2 := Q[1]; var Z2 := Q[2]
+	var X1: Array = P[0]; var Y1: Array = P[1]; var Z1: Array = P[2]
+	var X2: Array = Q[0]; var Y2: Array = Q[1]; var Z2: Array = Q[2]
 	var Z1Z1 := _field_mul(Z1, Z1)
 	var Z2Z2 := _field_mul(Z2, Z2)
 	var U1   := _field_mul(X1, Z2Z2)
