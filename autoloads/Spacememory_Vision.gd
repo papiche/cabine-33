@@ -1,6 +1,7 @@
 extends Node
 
 signal snapshot_taken(texture, lat, lon, azimut, pitch, fov)
+signal snapshot_failed(reason: String)  # capteur pas encore prêt ou indisponible
 signal memory_deleted(ts: int)  # notifie World_3D pour détruire le pivot 3D
 
 var camera_feed: CameraFeed
@@ -60,6 +61,8 @@ func switch_camera():
 		if camera_feed: camera_feed.set_active(false)
 		current_feed_idx = (current_feed_idx + 1) % feeds.size()
 		camera_feed = feeds[current_feed_idx]
+		if cam_texture == null:
+			cam_texture = CameraTexture.new()
 		cam_texture.camera_feed_id = camera_feed.get_id()
 		camera_feed.set_active(true)
 
@@ -112,7 +115,7 @@ func _on_web_orientation(args: Array):
 
 # ── Capture ────────────────────────────────────────────────────
 
-func take_real_snapshot():
+func take_real_snapshot() -> bool:
 	var lat    := SpaceTime_Manager.current_gps.x
 	var lon    := SpaceTime_Manager.current_gps.y
 	var orient := _get_orientation()
@@ -120,25 +123,23 @@ func take_real_snapshot():
 	var pitch:  float = orient[1]
 	var fov:    float = 70.0
 
-	var final_texture: Texture2D
-	var img: Image = null
-	if cam_texture:
-		var raw_img := cam_texture.get_image()
-		# Sur Android, la CameraTexture met quelques frames avant de recevoir l'image réelle
-		# raw_img peut être vide si le capteur n'a pas encore fourni de frame
-		if raw_img and not raw_img.is_empty():
-			img = raw_img
-			final_texture = ImageTexture.create_from_image(img)
-		else:
-			push_error("Spacememory: image capteur vide — snapshot ignoré")
-			return  # Ne pas sauvegarder l'icône Godot comme souvenir
-	else:
-		final_texture = preload("res://icon.svg")
+	if cam_texture == null:
+		emit_signal("snapshot_failed", "Caméra non initialisée")
+		return false
 
+	var raw_img := cam_texture.get_image()
+	# Sur Android, la CameraTexture met quelques frames avant de recevoir l'image réelle
+	if raw_img == null or raw_img.is_empty():
+		push_warning("Spacememory: image capteur vide — réessayez dans 1 seconde")
+		emit_signal("snapshot_failed", "Capteur pas encore prêt, réessayez")
+		return false
+
+	var final_texture := ImageTexture.create_from_image(raw_img)
 	emit_signal("snapshot_taken", final_texture, lat, lon, azimut, pitch, fov)
-	_persist_memory(img, lat, lon, azimut, pitch, fov)
+	_persist_memory(raw_img, lat, lon, azimut, pitch, fov)
 
 	if camera_feed: camera_feed.set_active(false)
+	return true
 
 # ── Persistance ────────────────────────────────────────────────
 

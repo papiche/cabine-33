@@ -105,6 +105,7 @@ func forge_multipass(email: String, salt: String, pepper: String, lat: float, lo
 		"email=" + email.uri_encode(),
 		"lang=" + lang, "lat=" + str(lat), "lon=" + str(lon),
 		"salt=" + salt.uri_encode(), "pepper=" + pepper.uri_encode(),
+		"pre_stretched=false",  # Cabine-33 envoie les chaînes brutes : le serveur applique PBKDF2
 		"format=json"
 	])
 	if birth_datetime != "":      params.append("birth_datetime="      + birth_datetime.uri_encode())

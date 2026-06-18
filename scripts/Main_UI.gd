@@ -73,6 +73,7 @@ var _interference_hide_id: int = 0
 var _web_capture_tex: ImageTexture = null   # Photo chargée depuis le sélecteur de fichier Web
 var _web_photo_cb: JavaScriptObject = null  # Callback JS→GDScript pour la caméra Web
 var _ar_active: bool = false                # Mode Réalité Augmentée actif
+var _web_capture_in_progress: bool = false  # Guard anti-double-tap FileReader (Web)
 
 # ── Tween guards (évite les tweens concurrents)
 var _panel_tween: Tween = null
@@ -170,6 +171,7 @@ func _ready():
 	QR_Generator._init_gf()  # tables Galois initialisées dans le thread principal (évite race condition)
 	photo_btn.connect("pressed", Callable(self, "_on_photo_pressed"))
 	sync_btn.connect("pressed", Callable(self, "_on_sync_pressed"))
+	Spacememory_Vision.snapshot_failed.connect(_on_snapshot_failed)
 
 	_on_cycle_changed(SpaceTime_Manager.current_state)
 
@@ -1660,6 +1662,10 @@ func _on_photo_pressed():
 			return
 	_close_panel()
 	if OS.has_feature("web"):
+		# Guard anti-double-tap : un seul FileReader actif à la fois
+		if _web_capture_in_progress:
+			return
+		_web_capture_in_progress = true
 		# Caméra Web : sélecteur de fichier natif → FileReader → callback GDScript
 		JavaScriptBridge.eval("""
 (function() {
@@ -1669,7 +1675,7 @@ func _on_photo_pressed():
     input.capture = 'environment';
     input.onchange = function(e) {
         var file = e.target.files[0];
-        if (!file) return;
+        if (!file) { if (window._godotPhotoCb) window._godotPhotoCb([]); return; }
         var reader = new FileReader();
         reader.onload = function(ev) {
             var img = new Image();
@@ -1683,10 +1689,13 @@ func _on_photo_pressed():
                 var b64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
                 if (window._godotPhotoCb) window._godotPhotoCb([b64]);
             };
+            img.onerror = function() { if (window._godotPhotoCb) window._godotPhotoCb([]); };
             img.src = ev.target.result;
         };
+        reader.onerror = function() { if (window._godotPhotoCb) window._godotPhotoCb([]); };
         reader.readAsDataURL(file);
     };
+    input.oncancel = function() { if (window._godotPhotoCb) window._godotPhotoCb([]); };
     input.click();
 })();
 """)
@@ -1702,7 +1711,10 @@ func _on_photo_pressed():
 	viewfinder.show()
 
 func _on_web_photo_received(args: Array):
-	if args.is_empty(): return
+	_web_capture_in_progress = false  # libère le guard dans tous les cas
+	if args.is_empty() or str(args[0]).is_empty():
+		add_log("📷 Aucune photo sélectionnée.")
+		return
 	var b64 := str(args[0])
 	var raw := Marshalls.base64_to_raw(b64)
 	var img := Image.new()
@@ -1711,7 +1723,9 @@ func _on_web_photo_received(args: Array):
 			add_log("❌ Format photo non reconnu (ni PNG ni JPEG)")
 			return
 	_web_capture_tex = ImageTexture.create_from_image(img)
-	if _web_capture_tex == null: add_log("❌ Conversion image échouée"); return
+	if _web_capture_tex == null:
+		add_log("❌ Conversion image échouée")
+		return
 	viewfinder.texture = _web_capture_tex
 	viewfinder.show()
 	add_log("📸 Photo chargée — appuyez sur 🔴 CAPTURER pour fixer l'empreinte.")
@@ -1724,10 +1738,19 @@ func _do_capture():
 		# (le lazy loader de World_3D a besoin du thumb_path pour recharger après unload)
 		Spacememory_Vision.save_web_snapshot(_web_capture_tex, lat, lon)
 		_web_capture_tex = null
+		_close_camera()
+		add_log("📸 Empreinte spatio-temporelle fixée !")
 	else:
-		Spacememory_Vision.take_real_snapshot()
-	_close_camera()
-	add_log("📸 Empreinte spatio-temporelle fixée !")
+		var ok := Spacememory_Vision.take_real_snapshot()
+		if ok:
+			_close_camera()
+			add_log("📸 Empreinte spatio-temporelle fixée !")
+		# Si échec : snapshot_failed signal → _on_snapshot_failed() — caméra reste ouverte
+
+func _on_snapshot_failed(reason: String):
+	_show_toast("⚠ %s — réessayez" % reason)
+	add_log("⚠ Capture échouée : %s" % reason)
+	# La caméra reste ouverte — l'utilisateur peut retenter sans rouvrir le viewfinder
 
 func _close_camera():
 	viewfinder.hide()
