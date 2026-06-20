@@ -83,8 +83,12 @@ func is_optical_singularity(phase_a: float, phase_b: float, tolerance: float = 0
 	return delta < tolerance or abs(delta - PI) < tolerance
 
 func compute_omega_bio(height_cm: float, weight_kg: float, sex: int) -> float:
-	var water_ratio: float = 0.65 if sex == 0 else 0.60
-	var water_kg: float = weight_kg * water_ratio
+	# Formule Watson TBW (sans âge) — synchronisée avec phi2x.js et phi2x.py
+	# ♂ Φ-wave  : TBW = 0.1074·h + 0.3362·w − 5.0
+	# ♀ Octave  : TBW = 0.1069·h + 0.2466·w − 2.0
+	var water_kg: float = maxf(
+		(0.1074 * height_cm + 0.3362 * weight_kg - 5.0) if sex == 0 else (0.1069 * height_cm + 0.2466 * weight_kg - 2.0),
+		1.0)
 	return F_WATER * (water_kg / 70.0)
 
 func _get_pentagon_offset(lat: float, lon: float) -> float:
@@ -180,19 +184,20 @@ func get_nearest_phi_node(lat: float, lon: float) -> Dictionary:
 	}
 
 func derive_multipass_salt(y: int, mo: int, d: int, h: int, mi: int,
-		lat: float, lon: float, sex: int, weight: float) -> String:
-	# Dérivation déterministe du sel MULTIPASS à partir des données de naissance
-	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%d_%.1f" % [
-		y, mo, d, h, mi, snappedf(lat, 0.01), snappedf(lon, 0.01), sex, weight]
+		lat: float, lon: float, sex: int, weight: float,
+		birth_height_cm: int = 50, current_height_cm: int = 170) -> String:
+	# Format : YYYYMMDDHHMM_LAT_LON_POL_WGT_BHGT_CHGT — synchronisé avec atomic.html
+	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%d_%.1f_%d_%d" % [
+		y, mo, d, h, mi, snappedf(lat, 0.01), snappedf(lon, 0.01), sex, weight,
+		birth_height_cm, current_height_cm]
 
-func derive_multipass_pepper(conception_unix: int, lat: float, lon: float, weight: float) -> String:
-	# Dérivation déterministe du poivre MULTIPASS.
-	# conception_unix = date de conception fournie par l'utilisateur (ou auto-calculée).
-	# lat/lon = lieu de conception (= lieu de naissance par défaut).
+func derive_multipass_pepper(conception_unix: int, lat: float, lon: float, weight: float,
+		birth_height_cm: int = 50) -> String:
+	# Format : YYYYMMDDHHMM_LAT_LON_WGT_BHGT — synchronisé avec atomic.html
 	var cd := Time.get_datetime_dict_from_unix_time(conception_unix)
-	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%.1f" % [
+	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%.1f_%d" % [
 		cd.year, cd.month, cd.day, cd.hour, cd.minute,
-		snappedf(lat, 0.01), snappedf(lon, 0.01), weight]
+		snappedf(lat, 0.01), snappedf(lon, 0.01), weight, birth_height_cm]
 
 # ── Adressage hexagonal propriétaire ATOM4LOVE ───────────────────────────────
 # Format : a4l:P<XX>H<QQQRRR>

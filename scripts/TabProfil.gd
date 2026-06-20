@@ -368,8 +368,8 @@ func _on_forge_pressed():
 
 	# Dérivation SALT / PEPPER
 	Player_Origin.height_cm = height  # propagé avant save_multipass via set_birth_profile
-	Player_Origin.user_salt   = Phi2X_Math.derive_multipass_salt(sy_v, sm_v, sd_v, hour, min_v, blat, blon, sex, weight)
-	Player_Origin.user_pepper = Phi2X_Math.derive_multipass_pepper(conception_unix, clat, clon, weight)
+	Player_Origin.user_salt   = Phi2X_Math.derive_multipass_salt(sy_v, sm_v, sd_v, hour, min_v, blat, blon, sex, weight, 50, int(height))
+	Player_Origin.user_pepper = Phi2X_Math.derive_multipass_pepper(conception_unix, clat, clon, weight, 50)
 
 	# GPS actuel (ancrage réseau UMAP)
 	var gps := SpaceTime_Manager.current_gps
