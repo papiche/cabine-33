@@ -11,6 +11,12 @@ const F_WATER: float = 429.62
 const ORBITAL_YEAR_S: float = 365.25636 * 24.0 * 3600.0  # Année sidérale (cohérent avec phi2x.py et disclosures tdcommons)
 const ORBITAL_DAY_S: float = 24.0 * 3600.0
 const PHASE_MODULUS: float = F_PHI / F_2
+# Constante de structure fine — effet Shapiro (compression spatio-temporelle par la masse)
+const ALPHA_SHAPIRO: float = 1.0 / 137.035999084  # ≈ 0.00729735
+
+# Bifurcation Relativiste (ATOM4LOVE — Vitesse d'Alignement)
+const V_ALIGNMENT_MAX: float = 0.99          # asymptote — jamais c
+const V_ALIGNMENT_TAU_YEARS: float = 25.0    # constante de temps caractéristique
 
 # Rotation Φ de la Grille de Planck : 86400s/PHI ≈ 14.83h pour un tour complet.
 # Choisi pour que le mouvement des Lignes de Planck soit perceptible en quelques minutes.
@@ -90,6 +96,65 @@ func compute_omega_bio(height_cm: float, weight_kg: float, sex: int) -> float:
 		(0.1074 * height_cm + 0.3362 * weight_kg - 5.0) if sex == 0 else (0.1069 * height_cm + 0.2466 * weight_kg - 2.0),
 		1.0)
 	return F_WATER * (water_kg / 70.0)
+
+# --- MODULE 2 : BIFURCATION RELATIVISTE (ATOM4LOVE) ---
+
+func compute_personal_stretch(weight_kg: float = 3.5) -> float:
+	# Facteur d'étirement d'onde personnel (effet Shapiro inversé).
+	# Référence : 3.5 kg (nouveau-né moyen) → stretch = PHASE_MODULUS (F_PHI/F_2)
+	# Poids < 3.5 → onde plus rapide (onde lumineuse, Φ-dominant)
+	# Poids > 3.5 → onde plus lente (ancrage matière, Octave-dominant)
+	# Identique à phi2x.js::computePersonalStretch.
+	var w: float = maxf(weight_kg, 0.5)
+	return PHASE_MODULUS * exp(-ALPHA_SHAPIRO * (w / 3.5))
+
+func compute_alignment_v(birth_unix: int, weight_kg: float = 3.5, now_unix: float = 0.0) -> float:
+	# Vitesse d'Alignement v ∈ [0, V_ALIGNMENT_MAX[ — fraction de c vers laquelle un Atome
+	# converge en fonction de son âge et de son poids de naissance (compression Shapiro).
+	# now_unix = 0.0 → utilise l'horloge système (convention identique à get_nearest_pentagon).
+	var now: float = now_unix if now_unix > 0.0 else Time.get_unix_time_from_system()
+	var age_years: float = maxf(0.0, (now - float(birth_unix)) / ORBITAL_YEAR_S)
+	var stretch_ratio: float = compute_personal_stretch(weight_kg) / PHASE_MODULUS
+	var tau_years: float = V_ALIGNMENT_TAU_YEARS * stretch_ratio
+	return V_ALIGNMENT_MAX * (1.0 - exp(-age_years / tau_years))
+
+func compute_lorentz_gamma(v: float) -> float:
+	# Facteur de Lorentz γ = 1/√(1−v²) — physique standard, c=1 normalisé.
+	var v_c: float = clampf(absf(v), 0.0, 0.999999)
+	return 1.0 / sqrt(1.0 - v_c * v_c)
+
+func compute_dream_divergence(dream_vector_a: Array, dream_vector_b: Array) -> float:
+	# Divergence des Rêves ∈ [0,1] entre deux dream_vector (ensembles de tags DR).
+	# 0 = rêves identiques (DR commune), 1 = aucun tag commun (mondes distincts).
+	# Similarité de Jaccard inversée : 1 − |A∩B|/|A∪B|.
+	var set_a := {}
+	for t in dream_vector_a: set_a[t] = true
+	var set_b := {}
+	for t in dream_vector_b: set_b[t] = true
+	if set_a.is_empty() and set_b.is_empty(): return 0.0
+	var inter := 0
+	for k in set_a.keys():
+		if set_b.has(k): inter += 1
+	var union := {}
+	for k in set_a.keys(): union[k] = true
+	for k in set_b.keys(): union[k] = true
+	var union_size := union.size()
+	return 0.0 if union_size == 0 else 1.0 - float(inter) / float(union_size)
+
+func compute_relative_velocity(v_a: float, v_b: float, dream_divergence: float = 1.0) -> float:
+	# Vitesse relative entre deux Atomes (addition relativiste des vitesses d'Einstein),
+	# pondérée par la divergence de leurs Rêves communs (dream_divergence ∈ [0,1]).
+	var a: float = clampf(v_a, 0.0, 0.999999)
+	var b: float = clampf(v_b, 0.0, 0.999999)
+	return absf((a - b) / (1.0 - a * b * dream_divergence))
+
+func describe_bifurcation(gamma: float) -> Dictionary:
+	# Statut textuel de Bifurcation en fonction de γ.
+	if gamma < 1.1:
+		return {"key": "sync", "label": "Lignes temporelles synchronisées. Présent commun stable."}
+	if gamma < 1.5:
+		return {"key": "friction", "label": "Friction Créatrice. Changement de phase et ajustement des trajectoires."}
+	return {"key": "bifurcated", "label": "Bifurcation Relativiste complétée. Séparation des mondes dans la gratitude."}
 
 func _get_pentagon_offset(lat: float, lon: float) -> float:
 	# Moyenne circulaire pondérée par loi inverse-carré entre tous les pentagones
