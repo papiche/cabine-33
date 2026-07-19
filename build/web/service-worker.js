@@ -1,5 +1,5 @@
-// ATOM4LOVE PWA Service Worker — v1.0 build 202606050125
-const CACHE = 'atom4love-1.0-202606050125';
+// ATOM4LOVE PWA Service Worker — v1.0 build 202607190138
+const CACHE = 'atom4love-1.0-202607190138';
 const ASSETS = ["./", "./index.html", "./index.audio.position.worklet.js", "./index.audio.worklet.js", "./index.js", "./nostr.bundle.js", "./index.wasm", "./index.pck", "./icon.png", "./index.apple-touch-icon.png", "./index.icon.png", "./index.png", "./manifest.json"];
 
 self.addEventListener('install', ev => {
