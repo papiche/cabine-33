@@ -74,6 +74,7 @@ var _web_capture_tex: ImageTexture = null   # Photo chargée depuis le sélecteu
 var _web_photo_cb: JavaScriptObject = null  # Callback JS→GDScript pour la caméra Web
 var _ar_active: bool = false                # Mode Réalité Augmentée actif
 var _web_capture_in_progress: bool = false  # Guard anti-double-tap FileReader (Web)
+var _camera_pending_after_permission: bool = false  # Auto-relance _on_photo_pressed() une fois la permission accordée
 
 # ── Tween guards (évite les tweens concurrents)
 var _panel_tween: Tween = null
@@ -290,6 +291,8 @@ func _connect_signals():
 	Atom4Peace.connect("reality_forked",          Callable(self, "_on_reality_forked"))
 	Atom4Peace.connect("resonance_detected",      Callable(self, "_on_resonance_detected"))
 	UPlanet_API.connect("multipass_created",      Callable(self, "_on_multipass_success"))
+	UPlanet_API.connect("multipass_needs_pass",   Callable(self, "_on_multipass_needs_pass"))
+	UPlanet_API.connect("multipass_pass_invalid", Callable(self, "_on_multipass_pass_invalid"))
 	UPlanet_API.connect("api_error",              Callable(self, "_on_multipass_error"))
 	UPlanet_API.connect("network_n2_analyzed",    Callable(self, "_on_n2_analyzed"))
 	UPlanet_API.connect("sync_completed",         Callable(self, "_on_sync_completed"))
@@ -773,6 +776,16 @@ func _build_camera_viewfinder():
 	overlay.set_anchors_preset(PRESET_FULL_RECT)
 	overlay.alignment = BoxContainer.ALIGNMENT_END
 	viewfinder.add_child(overlay)
+
+	var hint := Label.new()
+	hint.text = "📸 Capturez votre empreinte spatio-temporelle ici"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", UI_Theme._get_scaled_size(14))
+	hint.modulate = Color(1, 1, 1, 0.9)
+	var hint_sb := StyleBoxFlat.new()
+	hint_sb.bg_color = Color(0, 0, 0, 0.5); hint_sb.set_corner_radius_all(8); hint_sb.set_content_margin_all(10)
+	hint.add_theme_stylebox_override("normal", hint_sb)
+	overlay.add_child(hint)
 
 	var hb = HBoxContainer.new(); hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	hb.custom_minimum_size = Vector2(0, 110); hb.add_theme_constant_override("separation", 20)
@@ -1566,6 +1579,27 @@ func _on_multipass_error(msg):
 	var btn := _find_in_tab(TAB_PROFIL, "ForgeBtn") as Button
 	if btn: btn.disabled = false
 
+# 409 need_pass : un MULTIPASS existe déjà pour cet email — affiche le champ
+# PASS (masqué par défaut, voir TabProfil.gd::_build_multipass_section) au
+# lieu du message d'erreur générique.
+func _on_multipass_needs_pass(_email: String):
+	var status = _find_in_tab(TAB_PROFIL, "MultipassStatus") as Label
+	if status:
+		status.text = "🔒 Un MULTIPASS existe déjà pour cet email. Saisissez le code PASS reçu à sa création."
+		status.modulate = Color(1, 0.75, 0.2)
+	var forge_btn := _find_in_tab(TAB_PROFIL, "ForgeBtn") as Button
+	if forge_btn: forge_btn.disabled = false
+	var pass_section := _find_in_tab(TAB_PROFIL, "PassSection") as Control
+	if pass_section: pass_section.visible = true
+
+func _on_multipass_pass_invalid(_email: String):
+	var status = _find_in_tab(TAB_PROFIL, "MultipassStatus") as Label
+	if status:
+		status.text = "❌ Code PASS incorrect. Réessayez."
+		status.modulate = Color(1, 0.3, 0.3)
+	var btn := _find_in_tab(TAB_PROFIL, "PassSubmitBtn") as Button
+	if btn: btn.disabled = false
+
 func _on_nostr_relay_connected(url: String):    add_log("📡 Relais connecté : " + url)
 func _on_nostr_relay_disconnected(url: String): add_log("⚠ Relais déconnecté : " + url)
 func _on_nostr_profile_published(n: int):       add_log("✅ Profil Kind 0 publié sur %d relais." % n)
@@ -1652,8 +1686,16 @@ func _on_photo_pressed():
 	if OS.has_feature("android"):
 		var granted := OS.get_granted_permissions().has("android.permission.CAMERA")
 		if not granted:
+			_camera_pending_after_permission = true
+			add_log("📷 Autorisez la caméra dans la popup Android.")
+			_show_toast("📷 Autorisez la caméra dans la popup")
+			# Connexion explicite au signal MainLoop (Godot 4 — non automatique sur les nodes non-root)
+			var ml := Engine.get_main_loop()
+			if ml and not ml.is_connected("on_request_permissions_result",
+					Callable(self, "_on_camera_permission_result")):
+				ml.connect("on_request_permissions_result",
+					Callable(self, "_on_camera_permission_result"), CONNECT_ONE_SHOT)
 			OS.request_permission("android.permission.CAMERA")
-			add_log("📷 Autorisez la caméra dans la popup, puis retappez 📷.")
 			return
 		# Permission accordée MAIS aucun feed (accordé en cours de session → restart requis)
 		if CameraServer.feeds().size() == 0:
@@ -1666,6 +1708,7 @@ func _on_photo_pressed():
 		if _web_capture_in_progress:
 			return
 		_web_capture_in_progress = true
+		_show_toast("📷 Web : sélectionnez ou prenez une photo (pas de flux caméra en direct)")
 		# Caméra Web : sélecteur de fichier natif → FileReader → callback GDScript
 		JavaScriptBridge.eval("""
 (function() {
@@ -1710,10 +1753,23 @@ func _on_photo_pressed():
 	viewfinder.move_to_front()
 	viewfinder.show()
 
+func _on_camera_permission_result(permission: String, granted: bool):
+	if permission != "android.permission.CAMERA": return
+	if granted and _camera_pending_after_permission:
+		_camera_pending_after_permission = false
+		add_log("✅ Caméra autorisée.")
+		_show_toast("✅ Caméra autorisée")
+		_on_photo_pressed()
+	elif not granted:
+		_camera_pending_after_permission = false
+		add_log("❌ Permission caméra refusée — activez-la dans Paramètres > Applications > ATOM4LOVE.")
+		_show_toast("❌ Permission caméra refusée")
+
 func _on_web_photo_received(args: Array):
 	_web_capture_in_progress = false  # libère le guard dans tous les cas
 	if args.is_empty() or str(args[0]).is_empty():
 		add_log("📷 Aucune photo sélectionnée.")
+		_show_toast("📷 Aucune photo sélectionnée")
 		return
 	var b64 := str(args[0])
 	var raw := Marshalls.base64_to_raw(b64)
@@ -1721,10 +1777,12 @@ func _on_web_photo_received(args: Array):
 	if img.load_png_from_buffer(raw) != OK:
 		if img.load_jpg_from_buffer(raw) != OK:
 			add_log("❌ Format photo non reconnu (ni PNG ni JPEG)")
+			_show_toast("❌ Format photo non reconnu")
 			return
 	_web_capture_tex = ImageTexture.create_from_image(img)
 	if _web_capture_tex == null:
 		add_log("❌ Conversion image échouée")
+		_show_toast("❌ Conversion image échouée")
 		return
 	viewfinder.texture = _web_capture_tex
 	viewfinder.show()
@@ -1891,6 +1949,8 @@ func _show_aide():
 		var aide_instance = (aide_script as GDScript).new()
 		if aide_instance.has_method("_build_content"):
 			aide_instance._build_content(sv)
+			if aide_instance.has_signal("feedback_requested"):
+				aide_instance.connect("feedback_requested", Callable(self, "_on_feedback_requested"))
 		else:
 			_aide_content_inline(sv)
 	else:
@@ -1901,6 +1961,20 @@ func _show_aide():
 	btn_close.add_theme_font_size_override("font_size", UI_Theme._get_scaled_size(16))
 	btn_close.connect("pressed", Callable(popup, "queue_free"))
 	pv.add_child(btn_close)
+
+# Ferme le popup Aide et ouvre FeedbackScreen (signal feedback_requested d'AideScreen.gd)
+func _on_feedback_requested():
+	var aide_popup := find_child("AideScreenNode", true, false)
+	if is_instance_valid(aide_popup): aide_popup.queue_free()
+	_show_feedback()
+
+func _show_feedback():
+	if is_instance_valid(find_child("FeedbackScreenNode", true, false)): return
+	var fb_script := load("res://scripts/FeedbackScreen.gd")
+	if not fb_script: return
+	var fb = (fb_script as GDScript).new()
+	fb.name = "FeedbackScreenNode"
+	add_child(fb); fb.move_to_front()
 
 func _aide_content_inline(parent: VBoxContainer):
 	var sections := [
@@ -1935,6 +2009,9 @@ func _aide_content_inline(parent: VBoxContainer):
 		body.modulate = UI_Theme.text_color()
 		body.autowrap_mode = TextServer.AUTOWRAP_WORD
 		panel.add_child(body)
+	var btn_feedback := UI_Theme.add_styled_button(parent, "🐛 Signaler un bug / suggestion",
+		Callable(self, "_show_feedback"), true)
+	btn_feedback.custom_minimum_size.y = UI_Theme.scale_px(56)
 
 func _on_sync_pressed():
 	add_log("🔄 Synchronisation avec le relais…"); sync_btn.disabled = true

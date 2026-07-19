@@ -4,6 +4,7 @@ extends Control
 # Couvre : guide app, contexte UPlanet, rôles, levée de fonds, mouvement
 
 signal aide_closed
+signal feedback_requested  # bouton "🐛 Signaler un bug" — géré par Main_UI.gd::_show_aide()
 
 const OC_URL  := "https://opencollective.com/monnaie-libre/contribute"
 const APK_URL := "https://u.copylaradio.com/apk/atom4love.apk"
@@ -45,10 +46,19 @@ func _build_content(vbox: VBoxContainer):
 	_section_levee(vbox)
 	_section_mouvement(vbox)
 	_section_credits(vbox)
+
+	vbox.add_child(HSeparator.new())
+	var btn_feedback := UI_Theme.add_styled_button(vbox, "🐛 Signaler un bug / suggestion",
+		Callable(self, "_on_feedback_pressed"), true)
+	btn_feedback.custom_minimum_size.y = UI_Theme.scale_px(56)
+
 	# Bouton fermer en bas
 	var btn_close := UI_Theme.add_styled_button(vbox, "✕ Retour à ATOM4LOVE",
 		Callable(self, "_close"), false)
 	btn_close.custom_minimum_size.y = UI_Theme.scale_px(60)
+
+func _on_feedback_pressed():
+	emit_signal("feedback_requested")
 
 # ── Header ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +103,8 @@ func _section_guide(vbox: VBoxContainer):
 		 "Mode LOCA : diffuse votre signature φ_i via le WiFi (SSID A4L-) et détecte les autres utilisateurs ATOM4LOVE à portée.\n\nHot/Cold : choisissez une cible et déplacez-vous — les vibrations vous guident vers la résonance maximale. Effet compteur Geiger : plus k approche 1.0, plus les vibrations s'accélèrent."],
 		["🌍 RÉSEAU — Constellation N²",
 		 "Votre constellation : les atomes que vous suivez (N1) et les amis de vos amis (N2).\n\nCabine-33 : lorsque vous êtes à moins de 50m du centre géométrique d'une cellule hexagonale, effectuez le Rituel de Phase (33 secondes d'immobilité) pour déverrouiller l'écriture dans la Spacememory de ce nœud.\n\nSpacememory : pensées géolocalisées, lues par les autres atomes ayant visité le même nœud."],
+		["👁 AR — Réalité Augmentée & 📷 Empreinte spatio-temporelle",
+		 "Le bouton 👁 bascule en mode Réalité Augmentée : votre caméra devient le fond de l'écran, avec la grille hexagonale et vos memories flottantes superposées.\n\nLe bouton 📷 ouvre le viseur caméra pour fixer une empreinte spatio-temporelle (photo + position GPS + horodatage) dans la Spacememory du lieu.\n\nSur Android, la permission caméra est demandée au premier usage — la caméra démarre automatiquement dès qu'elle est accordée. Sur le Web, un sélecteur de fichier remplace le flux caméra en direct (limitation navigateur) : vous pouvez y prendre une photo ou en choisir une existante."],
 	]
 	for g in guides:
 		var panel := UI_Theme.add_panel_vbox(vbox)

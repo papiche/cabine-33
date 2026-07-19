@@ -1,19 +1,29 @@
 extends Node
 
 signal multipass_created(data)
+signal multipass_needs_pass(email: String)   # 409 need_pass — compte existant, code PASS requis
+signal multipass_pass_invalid(email: String) # 401 — code PASS incorrect, réessayer
 signal network_n2_analyzed(is_authorized, total_nodes)
 signal sync_completed(message)
 signal api_error(message)
 signal udrive_uploaded(filename: String, cid: String)    # upload uDRIVE réussi
 signal udrive_roaming()                                  # station ≠ home → roaming détecté
+signal feedback_sent(result: Dictionary)                 # /api/feedback OK — {ok, stored, issue_url, ...}
+signal feedback_error(message: String)
 
 var http_request: HTTPRequest
 var http_sign: HTTPRequest      # requête dédiée à la signature Schnorr
 var http_discover: HTTPRequest  # requête dédiée à la découverte de relais
 var http_auth: HTTPRequest      # requête dédiée à check_wot_authorization (évite collision avec forge)
 var http_upload: HTTPRequest    # requête dédiée à l'upload uDRIVE
+var http_feedback: HTTPRequest  # requête dédiée à /api/feedback
 var base_url: String = "https://u.copylaradio.com"
 var relay_url: String = "wss://relay.copylaradio.com"
+
+# Derniers paramètres envoyés à forge_multipass — permet de rejouer la même
+# requête avec un pass_code une fois que le serveur l'a demandé (409 need_pass),
+# sans que l'appelant (TabProfil.gd) ait à tout ressaisir.
+var _last_forge_params: Dictionary = {}
 
 func _ready():
 	http_request = HTTPRequest.new()
@@ -31,6 +41,9 @@ func _ready():
 	http_upload = HTTPRequest.new()
 	http_upload.timeout = 60.0    # upload fichier vers uDRIVE
 	add_child(http_upload)
+	http_feedback = HTTPRequest.new()
+	http_feedback.timeout = 20.0
+	add_child(http_feedback)
 
 # ── Upload vers uDRIVE (/api/fileupload) ──────────────────────────────────────
 # Authentification implicite via npub — UPassport vérifie que le joueur est local.
@@ -100,7 +113,13 @@ func upload_to_udrive(file_bytes: PackedByteArray, filename: String,
 func forge_multipass(email: String, salt: String, pepper: String, lat: float, lon: float,
 		lang: String = "fr",
 		birth_datetime: String = "", birth_place: String = "", birth_weight: String = "",
-		conception_datetime: String = "", conception_place: String = ""):
+		conception_datetime: String = "", conception_place: String = "",
+		pass_code: String = ""):
+	_last_forge_params = {
+		"email": email, "salt": salt, "pepper": pepper, "lat": lat, "lon": lon, "lang": lang,
+		"birth_datetime": birth_datetime, "birth_place": birth_place, "birth_weight": birth_weight,
+		"conception_datetime": conception_datetime, "conception_place": conception_place,
+	}
 	var params := PackedStringArray([
 		"email=" + email.uri_encode(),
 		"lang=" + lang, "lat=" + str(lat), "lon=" + str(lon),
@@ -113,6 +132,7 @@ func forge_multipass(email: String, salt: String, pepper: String, lat: float, lo
 	if birth_weight != "":        params.append("birth_weight="        + birth_weight.uri_encode())
 	if conception_datetime != "": params.append("conception_datetime=" + conception_datetime.uri_encode())
 	if conception_place != "":    params.append("conception_place="    + conception_place.uri_encode())
+	if pass_code != "":           params.append("pass_code="           + pass_code.uri_encode())
 	var headers := ["Content-Type: application/x-www-form-urlencoded"]
 	var err := http_request.request(base_url + "/g1nostr", headers,
 		HTTPClient.METHOD_POST, "&".join(params))
@@ -135,7 +155,39 @@ func forge_multipass(email: String, salt: String, pepper: String, lat: float, lo
 		if json.parse(body.get_string_from_utf8()) == OK:
 			emit_signal("multipass_created", json.data)
 		else: emit_signal("api_error", "Réponse du nœud illisible.")
-	else: emit_signal("api_error", "Le nœud a refusé (Code %d)" % response_code)
+		return
+
+	# Réponses d'erreur structurées — voir UPassport/routers/identity.py::_scan_qr_impl
+	var err_json := JSON.new()
+	var err_data: Dictionary = {}
+	if err_json.parse(body.get_string_from_utf8()) == OK and err_json.data is Dictionary:
+		err_data = err_json.data
+	match response_code:
+		409:
+			if err_data.get("need_pass", false):
+				emit_signal("multipass_needs_pass", email)
+			elif err_data.get("error", "") == "IDENTITY_CONFLICT":
+				emit_signal("api_error", "Conflit d'identité : ces données correspondent déjà à un autre compte.")
+			else:
+				emit_signal("api_error", "Le nœud a refusé (Code 409)")
+		401:
+			emit_signal("multipass_pass_invalid", email)
+		503:
+			emit_signal("api_error", "Code PASS indisponible sur ce nœud. Contactez le support.")
+		_:
+			emit_signal("api_error", "Le nœud a refusé (Code %d)" % response_code)
+
+# Rejoue la dernière tentative forge_multipass() avec un pass_code — utilisé
+# après un signal multipass_needs_pass ou multipass_pass_invalid, quand
+# l'utilisateur saisit son code PASS dans TabProfil.gd.
+func retry_forge_multipass_with_pass(pass_code: String) -> void:
+	if _last_forge_params.is_empty():
+		emit_signal("api_error", "Aucune tentative de forge en attente — recommencez.")
+		return
+	var p := _last_forge_params
+	forge_multipass(p["email"], p["salt"], p["pepper"], p["lat"], p["lon"], p["lang"],
+		p["birth_datetime"], p["birth_place"], p["birth_weight"],
+		p["conception_datetime"], p["conception_place"], pass_code)
 
 # sign_and_publish() supprimée — la clé privée ne doit jamais quitter l'appareil.
 # Toute signature passe par NostrCrypto.sign_event_local() (Android/Desktop)
@@ -290,3 +342,37 @@ func send_secure_dm_proxy(recipient_hex: String, plaintext: String) -> void:
 	var ev := Nostr_Identity.make_event(4, ciphertext, [["p", recipient_hex]])
 	Nostr_Identity.sign_and_send(ev)
 	print("📨 DM NIP-44 chiffré localement → %s…" % recipient_hex.substr(0, 12))
+
+# ── Feedback / rapport de bug ─────────────────────────────────────────────────
+# POST /api/feedback — même endpoint que UPlanet/earth (feedback.js) et Zelkova
+# (FeedbackService) : crée une issue Git (repo "{GIT_OWNER}/cabine-33") ou,
+# à défaut, envoie un email au capitaine. Voir UPassport/routers/feedback.py.
+func send_feedback(title: String, description: String, category: String = "bug",
+		pubkey: String = "") -> void:
+	var fields := PackedStringArray([
+		"title=" + title.uri_encode(),
+		"description=" + description.uri_encode(),
+		"category=" + category.uri_encode(),
+		"source=cabine-33",
+		"platform=" + OS.get_name().uri_encode(),
+	])
+	if pubkey != "": fields.append("pubkey=" + pubkey.uri_encode())
+	var headers := ["Content-Type: application/x-www-form-urlencoded"]
+	var err := http_feedback.request(base_url + "/api/feedback", headers,
+		HTTPClient.METHOD_POST, "&".join(fields))
+	if err != OK:
+		emit_signal("feedback_error", "Erreur réseau (code %d)" % err); return
+	var result: Array = await http_feedback.request_completed
+	var http_result: int = result[0]; var response_code: int = result[1]
+	var body: PackedByteArray = result[3]
+	if http_result != HTTPRequest.RESULT_SUCCESS:
+		emit_signal("feedback_error", "Astroport injoignable — vérifiez votre connexion.")
+		return
+	if response_code != 200:
+		emit_signal("feedback_error", "Le nœud a refusé (Code %d)" % response_code)
+		return
+	var json := JSON.new()
+	if json.parse(body.get_string_from_utf8()) == OK and json.data is Dictionary:
+		emit_signal("feedback_sent", json.data as Dictionary)
+	else:
+		emit_signal("feedback_error", "Réponse du nœud illisible.")

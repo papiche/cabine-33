@@ -326,6 +326,37 @@ func _build_multipass_section():
 	btn_forge.custom_minimum_size = Vector2(0, 76)
 	btn_forge.add_theme_font_size_override("font_size", UI_Theme._get_scaled_size(20))
 
+	# ── Section PASS (masquée) ──────────────────────────────────────────
+	# Un MULTIPASS existe déjà pour cet email (409 need_pass) : le serveur ne
+	# le récupère plus par simple resoumission des données de naissance
+	# (l'identité principale est désormais aléatoire, cf. make_NOSTRCARD.sh —
+	# seule la clé LOVE est birth-derived). Il faut le code PASS reçu par
+	# email/zine à la création (même mécanisme que Zelkova).
+	var pass_section := VBoxContainer.new()
+	pass_section.name = "PassSection"
+	pass_section.visible = false
+	add_child(HSeparator.new())
+	add_child(pass_section)
+	UI_Theme.add_labeled_input(pass_section, "MultipassPass",
+		"Code PASS (reçu par email à la création)", "12345", 56,
+		LineEdit.KEYBOARD_TYPE_NUMBER)
+	var btn_pass := UI_Theme.add_styled_button(pass_section, "🔓 Valider le code PASS",
+		Callable(self, "_on_pass_submit_pressed"), true)
+	btn_pass.name = "PassSubmitBtn"
+	btn_pass.custom_minimum_size = Vector2(0, 60)
+
+func _on_pass_submit_pressed():
+	var pass_inp := find_child("MultipassPass", true, false) as LineEdit
+	var status   := find_child("MultipassStatus", true, false) as Label
+	if not pass_inp or pass_inp.text.strip_edges() == "":
+		if status: status.text = "⚠ Le code PASS est requis."; status.modulate = Color(1, 0.3, 0.3)
+		return
+	UI_Theme.vibrate(50)
+	if status: status.text = "⏳ Vérification du code PASS…"; status.modulate = Color(0.8, 0.8, 0.8)
+	var btn := find_child("PassSubmitBtn", true, false) as Button
+	if btn: btn.disabled = true
+	UPlanet_API.retry_forge_multipass_with_pass(pass_inp.text.strip_edges())
+
 func _compute_multipass_precision() -> int:
 	if hook_birth_unix <= 0: return 0
 	var score := 40
@@ -395,10 +426,13 @@ func _on_forge_pressed():
 
 func _build_birth_locked():
 	# Données de naissance — VERROUILLÉES après création du MULTIPASS
-	# Elles définissent le SALT cryptographique : les modifier changerait l'identité
-	_lbl_section(self, "🔒 DONNÉES DE NAISSANCE — Identité fixée")
+	# Elles définissent la clé LOVE (résonance ATOM4LOVE), distincte de
+	# l'identité MULTIPASS elle-même — toujours générée aléatoirement côté
+	# serveur (make_NOSTRCARD.sh) : les modifier changerait le profil
+	# ATOM4LOVE, jamais le portefeuille ẐEN.
+	_lbl_section(self, "🔒 DONNÉES DE NAISSANCE — Profil ATOM4LOVE fixé")
 	var p := _make_panel_box()
-	_lbl(p, "Ces données définissent votre SALT cryptographique. Elles ne peuvent plus être modifiées sans recréer un nouveau MULTIPASS.", 11, UI_Theme.text_hint())
+	_lbl(p, "Ces données définissent votre clé LOVE (résonance ATOM4LOVE) — distincte de votre identité MULTIPASS. Elles ne peuvent plus être modifiées sans recréer un nouveau profil.", 11, UI_Theme.text_hint())
 	p.add_child(HSeparator.new())
 
 	# Date et heure
@@ -424,7 +458,7 @@ func _build_birth_locked():
 func _build_conception_editable():
 	# Données de conception — éditables à tout moment (améliorent la Pureté Vibratoire)
 	_lbl_section(self, "✏️ DONNÉES DE CONCEPTION — Affiner la Pureté")
-	_lbl(self, "Ces données définissent votre PEPPER cryptographique. Précisez-les pour augmenter votre score de Pureté Vibratoire sans toucher à votre identité.", 11, UI_Theme.text_hint())
+	_lbl(self, "Ces données affinent votre clé LOVE (résonance ATOM4LOVE). Précisez-les pour augmenter votre score de Pureté Vibratoire sans toucher à votre identité MULTIPASS.", 11, UI_Theme.text_hint())
 
 	# Portail d'Origine dans le Polyèdre de Goldberg
 	if Player_Origin.origin_pentagon_id >= 0:

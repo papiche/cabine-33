@@ -15,6 +15,11 @@ var user_hex: String = ""
 var user_ipns: String = ""
 var user_salt: String = ""
 var user_pepper: String = ""
+# Code PASS reçu à la création du MULTIPASS (email/zine) — sert à récupérer
+# le compte (auth pass_code de /g1nostr) quand l'app est réinstallée : la
+# resoumission des données de naissance seule ne suffit plus, l'identité
+# principale étant désormais toujours aléatoire (make_NOSTRCARD.sh).
+var user_pass: String = ""
 # HEX NOSTR du NODE home station — parsé depuis le champ home_station du kind 0.
 # Format : "IPFSNODEID:NODE_NOSTR_HEX" → on extrait la partie après ":"
 # Utilisé par Nostr_Identity.send_udrive_dm() pour router les uploads en roaming.
@@ -61,6 +66,7 @@ func init_from_multipass(data: Dictionary):
 	user_ipns   = data.get("nostrns", "")
 	user_salt       = data.get("salt", "")
 	user_pepper     = data.get("pepper", "")
+	user_pass       = data.get("pass", "")
 	home_node_hex   = data.get("home_node_hex", "")
 
 	## NAISSANCE
@@ -134,7 +140,7 @@ func reset():
 	is_initialized = false
 	user_email = ""; user_npub = ""; user_nsec = ""
 	user_hex = ""; user_g1pub = ""; user_ipns = ""
-	user_salt = ""; user_pepper = ""
+	user_salt = ""; user_pepper = ""; user_pass = ""
 	origin_pentagon_id = -1; base_frequency = 0.0
 	birth_unix = 0; conception_unix = 0
 	birth_lat = 0.0; birth_lon = 0.0
@@ -187,7 +193,7 @@ func save_multipass():
 	var save_data = {
 		"email": user_email, "npub": user_npub, "nsec": user_nsec,
 		"hex": user_hex, "g1pub": user_g1pub, "nostrns": user_ipns,
-		"salt": user_salt, "pepper": user_pepper,
+		"salt": user_salt, "pepper": user_pepper, "pass": user_pass,
 		"home_node_hex": home_node_hex,
 		"birth_unix": birth_unix, "conception_unix": conception_unix,
 		"birth_lat": birth_lat, "birth_lon": birth_lon,
