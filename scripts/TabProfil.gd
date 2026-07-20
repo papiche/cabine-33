@@ -21,6 +21,21 @@ var hook_conception_unix: int   = 0
 var hook_conception_lat:  float = 0.0
 var hook_conception_lon:  float = 0.0
 
+# Paramètres ATOM4LOVE en attente d'envoi — préparés par _on_forge_pressed(),
+# envoyés par Main_UI._on_multipass_success() APRÈS la création du MULTIPASS
+# (voir UPlanet_API.activate_atom4love — jamais mêlés à la requête /g1nostr).
+var pending_atom4love_birth_datetime:      String = ""
+var pending_atom4love_birth_place:         String = ""
+var pending_atom4love_birth_lat:           float  = 0.0
+var pending_atom4love_birth_lon:           float  = 0.0
+var pending_atom4love_birth_weight:        String = ""
+var pending_atom4love_conception_datetime: String = ""
+var pending_atom4love_conception_place:    String = ""
+var pending_atom4love_polarity:            String = "0"
+
+func has_pending_atom4love_activation() -> bool:
+	return pending_atom4love_birth_datetime != ""
+
 # ─────────────────────────────────────────────────────────────
 # POINT D'ENTRÉE
 # ─────────────────────────────────────────────────────────────
@@ -42,7 +57,7 @@ func build():
 		var welcome := _make_panel_box()
 		_lbl_title(welcome, "Trouvez vos âmes sœurs cosmiques", 18, UI_Theme.accent_color())
 		_lbl(welcome, "ATOM4LOVE détecte en temps réel les personnes proches dont la fréquence de naissance résonne avec la vôtre — sans données personnelles en ligne.", 14, UI_Theme.text_secondary())
-		_lbl(welcome, "Votre identité (MULTIPASS) est calculée uniquement depuis votre date, heure, lieu et poids de naissance. Elle n'est stockée nulle part — elle est dans les étoiles.", 13, UI_Theme.text_hint())
+		_lbl(welcome, "Votre identité (MULTIPASS) est générée aléatoirement et vous appartient en exclusivité. Votre profil de résonance ATOM4LOVE (clé LOVE), lui, est calculé depuis votre date, heure, lieu et poids de naissance — jamais stocké en clair, jamais partagé.", 13, UI_Theme.text_hint())
 		add_child(HSeparator.new())
 		_build_multipass_section()
 	else:
@@ -396,29 +411,33 @@ func _on_forge_pressed():
 	# UTC dérivé depuis la longitude
 	Player_Origin.conception_utc_offset_h = roundf(clon / 15.0) if clon != 0.0 else 0.0
 	Player_Origin.birth_utc_offset_h = roundf(blon / 15.0) if blon != 0.0 else 0.0
-
-	# Dérivation SALT / PEPPER
 	Player_Origin.height_cm = height  # propagé avant save_multipass via set_birth_profile
-	Player_Origin.user_salt   = Phi2X_Math.derive_multipass_salt(sy_v, sm_v, sd_v, hour, min_v, blat, blon, sex, weight, 50, int(height))
-	Player_Origin.user_pepper = Phi2X_Math.derive_multipass_pepper(conception_unix, clat, clon, weight, 50)
 
-	# GPS actuel (ancrage réseau UMAP)
+	# GPS actuel (ancrage réseau UMAP) — seule géoloc envoyée à la création du MULTIPASS
 	var gps := SpaceTime_Manager.current_gps
 	var lat := snappedf(gps.x, 0.01); var lon := snappedf(gps.y, 0.01)
 
-	var birth_dt    := "%04d-%02d-%02dT%02d:%02d" % [sy_v, sm_v, sd_v, hour, min_v]
-	var birth_place := "%.4f, %.4f" % [blat, blon] if (blat != 0.0 or blon != 0.0) else ""
+	# Données de naissance/conception : PAS envoyées avec la création du MULTIPASS
+	# (l'identité principale est toujours aléatoire côté serveur, cf. make_NOSTRCARD.sh).
+	# Elles sont mises en attente ici et transmises par Main_UI._on_multipass_success()
+	# via UPlanet_API.activate_atom4love(), UNE FOIS le MULTIPASS effectivement créé —
+	# même séparation en deux appels que zelkova (createMultipass / activateAtom4Love).
 	var cd := Time.get_datetime_dict_from_unix_time(conception_unix)
-	var conception_dt    := "%04d-%02d-%02dT%02d:%02d" % [cd.year, cd.month, cd.day, cd.hour, cd.minute]
-	var conception_place := "%.4f, %.4f" % [clat, clon] if (clat != 0.0 or clon != 0.0) else birth_place
+	pending_atom4love_birth_datetime      = "%04d-%02d-%02dT%02d:%02d" % [sy_v, sm_v, sd_v, hour, min_v]
+	pending_atom4love_birth_place         = "%.4f, %.4f" % [blat, blon] if (blat != 0.0 or blon != 0.0) else ""
+	pending_atom4love_birth_lat           = blat
+	pending_atom4love_birth_lon           = blon
+	pending_atom4love_birth_weight        = str(weight) if weight > 0 else ""
+	pending_atom4love_conception_datetime = "%04d-%02d-%02dT%02d:%02d" % [cd.year, cd.month, cd.day, cd.hour, cd.minute]
+	pending_atom4love_conception_place    = "%.4f, %.4f" % [clat, clon] if (clat != 0.0 or clon != 0.0) else pending_atom4love_birth_place
+	pending_atom4love_polarity            = str(sex)
 
 	UI_Theme.vibrate(50)
 	if status: status.text = "⏳ Connexion à Astroport…"; status.modulate = Color(0.8, 0.8, 0.8)
 	var fb := find_child("ForgeBtn", true, false) as Button
 	if fb: fb.disabled = true
-	UPlanet_API.forge_multipass(email_inp.text.strip_edges(), Player_Origin.user_salt,
-		Player_Origin.user_pepper, lat, lon, OS.get_locale().substr(0, 2).to_lower(),
-		birth_dt, birth_place, str(weight) if weight > 0 else "", conception_dt, conception_place)
+	UPlanet_API.forge_multipass(email_inp.text.strip_edges(), lat, lon,
+		OS.get_locale().substr(0, 2).to_lower())
 
 # ─────────────────────────────────────────────────────────────
 # SECTION NAISSANCE & ATOM4LOVE

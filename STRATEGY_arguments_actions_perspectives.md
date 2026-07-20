@@ -133,7 +133,7 @@ python3 ~/.zen/Astroport.ONE/tools/nostr_send_note.py \
 **Concepts à documenter en antériorité :**
 - Algorithme φ_i = f(date, lieu, poids de naissance) pour identité biométrique
 - Adressage hexagonal propriétaire `a4l:P<XX>H<QQQRRRR>` sur polyèdre de Goldberg
-- Dérivation déterministe salt/pepper MULTIPASS depuis données biométriques
+- Dérivation déterministe salt/pepper de la clé LOVE/ATOM4LOVE (secondaire, jamais le MULTIPASS lui-même) depuis données biométriques
 - Protocole de résonance k = 1/(1+|sin(Δφ)|) pour matching social
 - Architecture Hub GPU (0-24 satellites) → Satellite (24-250 utilisateurs)
 - Rituel de Phase 33 secondes comme preuve de présence physique
@@ -430,7 +430,7 @@ Couche 5 (Engagement civique)
 - [ ] Publier whitepaper d'antériorité sur relay Astroport (0€)
 - [ ] Choisir et créer la structure juridique (association loi 1901 recommandée pour démarrer, SCIC si coopérative souhaitée) — actuellement seul opencollective.com/monnaie-libre existe
 - [ ] Créer le règlement d'usage de la marque "Certifié Astroport" (collaborative-editor)
-- [ ] Valider la conformité RGPD de la dérivation biométrique MULTIPASS
+- [ ] Valider la conformité RGPD de la dérivation biométrique de la clé LOVE/ATOM4LOVE
 
 **ATOM4LOVE — Alpha test :**
 - [ ] Premier groupe de 10 alpha testers avec Kin Maya connus

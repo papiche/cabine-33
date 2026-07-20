@@ -6,6 +6,8 @@ signal multipass_pass_invalid(email: String) # 401 — code PASS incorrect, rée
 signal network_n2_analyzed(is_authorized, total_nodes)
 signal sync_completed(message)
 signal api_error(message)
+signal atom4love_activated(data: Dictionary)       # POST /atom4love/activate OK — .secret.love dérivée
+signal atom4love_activation_error(message: String)
 signal udrive_uploaded(filename: String, cid: String)    # upload uDRIVE réussi
 signal udrive_roaming()                                  # station ≠ home → roaming détecté
 signal feedback_sent(result: Dictionary)                 # /api/feedback OK — {ok, stored, issue_url, ...}
@@ -17,6 +19,7 @@ var http_discover: HTTPRequest  # requête dédiée à la découverte de relais
 var http_auth: HTTPRequest      # requête dédiée à check_wot_authorization (évite collision avec forge)
 var http_upload: HTTPRequest    # requête dédiée à l'upload uDRIVE
 var http_feedback: HTTPRequest  # requête dédiée à /api/feedback
+var http_atom4love: HTTPRequest # requête dédiée à /atom4love/activate
 var base_url: String = "https://u.copylaradio.com"
 var relay_url: String = "wss://relay.copylaradio.com"
 
@@ -44,6 +47,9 @@ func _ready():
 	http_feedback = HTTPRequest.new()
 	http_feedback.timeout = 20.0
 	add_child(http_feedback)
+	http_atom4love = HTTPRequest.new()
+	http_atom4love.timeout = 30.0  # dérivation .secret.love + publication NOSTR côté serveur
+	add_child(http_atom4love)
 
 # ── Upload vers uDRIVE (/api/fileupload) ──────────────────────────────────────
 # Authentification implicite via npub — UPassport vérifie que le joueur est local.
@@ -110,29 +116,24 @@ func upload_to_udrive(file_bytes: PackedByteArray, filename: String,
 		_:
 			emit_signal("api_error", "Erreur serveur upload (%d) — réessayez." % code)
 
-func forge_multipass(email: String, salt: String, pepper: String, lat: float, lon: float,
-		lang: String = "fr",
-		birth_datetime: String = "", birth_place: String = "", birth_weight: String = "",
-		conception_datetime: String = "", conception_place: String = "",
+## Crée (ou récupère) le MULTIPASS principal — email + géoloc UNIQUEMENT.
+## Aucune donnée de naissance/conception n'est envoyée ici : le serveur génère
+## toujours une identité aléatoire pour un nouveau MULTIPASS (voir
+## Astroport.ONE/tools/make_NOSTRCARD.sh — un SALT/PEPPER fourni en même temps
+## qu'un BIRTH_DATETIME serait de toute façon ignoré et remplacé par de
+## l'aléatoire côté serveur). Le profil de naissance (ATOM4LOVE / .secret.love)
+## est demandé séparément, APRÈS création du MULTIPASS, via activate_atom4love()
+## — même modèle que zelkova/lib/g1/multipass_service.dart (createMultipass /
+## activateAtom4Love).
+func forge_multipass(email: String, lat: float, lon: float, lang: String = "fr",
 		pass_code: String = ""):
-	_last_forge_params = {
-		"email": email, "salt": salt, "pepper": pepper, "lat": lat, "lon": lon, "lang": lang,
-		"birth_datetime": birth_datetime, "birth_place": birth_place, "birth_weight": birth_weight,
-		"conception_datetime": conception_datetime, "conception_place": conception_place,
-	}
+	_last_forge_params = {"email": email, "lat": lat, "lon": lon, "lang": lang}
 	var params := PackedStringArray([
 		"email=" + email.uri_encode(),
 		"lang=" + lang, "lat=" + str(lat), "lon=" + str(lon),
-		"salt=" + salt.uri_encode(), "pepper=" + pepper.uri_encode(),
-		"pre_stretched=false",  # Cabine-33 envoie les chaînes brutes : le serveur applique PBKDF2
 		"format=json"
 	])
-	if birth_datetime != "":      params.append("birth_datetime="      + birth_datetime.uri_encode())
-	if birth_place != "":         params.append("birth_place="         + birth_place.uri_encode())
-	if birth_weight != "":        params.append("birth_weight="        + birth_weight.uri_encode())
-	if conception_datetime != "": params.append("conception_datetime=" + conception_datetime.uri_encode())
-	if conception_place != "":    params.append("conception_place="    + conception_place.uri_encode())
-	if pass_code != "":           params.append("pass_code="           + pass_code.uri_encode())
+	if pass_code != "": params.append("pass_code=" + pass_code.uri_encode())
 	var headers := ["Content-Type: application/x-www-form-urlencoded"]
 	var err := http_request.request(base_url + "/g1nostr", headers,
 		HTTPClient.METHOD_POST, "&".join(params))
@@ -185,9 +186,51 @@ func retry_forge_multipass_with_pass(pass_code: String) -> void:
 		emit_signal("api_error", "Aucune tentative de forge en attente — recommencez.")
 		return
 	var p := _last_forge_params
-	forge_multipass(p["email"], p["salt"], p["pepper"], p["lat"], p["lon"], p["lang"],
-		p["birth_datetime"], p["birth_place"], p["birth_weight"],
-		p["conception_datetime"], p["conception_place"], pass_code)
+	forge_multipass(p["email"], p["lat"], p["lon"], p["lang"], pass_code)
+
+## Active le profil ATOM4LOVE (dérivation .secret.love + résonance Phi² +
+## publication Kind 30078) pour un MULTIPASS DÉJÀ CRÉÉ. Ne crée jamais de
+## second MULTIPASS — voir UPassport/routers/identity.py::atom4love_activate.
+## Authentification : pass_code (code PASS reçu à la création, cf.
+## Player_Origin.user_pass) — alternative au NIP-42 auth_event non implémenté
+## côté GDScript pour ce flux.
+func activate_atom4love(email: String, pass_code: String,
+		birth_datetime: String, birth_lat: float, birth_lon: float, birth_weight: String,
+		birth_place: String = "", conception_datetime: String = "", conception_place: String = "",
+		polarity: String = "0") -> void:
+	var params := PackedStringArray([
+		"email=" + email.uri_encode(),
+		"birth_datetime=" + birth_datetime.uri_encode(),
+		"birth_lat=" + str(birth_lat),
+		"birth_lon=" + str(birth_lon),
+		"birth_weight=" + birth_weight.uri_encode(),
+		"polarity=" + polarity.uri_encode(),
+		"pass_code=" + pass_code.uri_encode(),
+	])
+	if birth_place != "":         params.append("birth_place="         + birth_place.uri_encode())
+	if conception_datetime != "": params.append("conception_datetime=" + conception_datetime.uri_encode())
+	if conception_place != "":    params.append("conception_place="    + conception_place.uri_encode())
+	var headers := ["Content-Type: application/x-www-form-urlencoded"]
+	var err := http_atom4love.request(base_url + "/atom4love/activate", headers,
+		HTTPClient.METHOD_POST, "&".join(params))
+	if err != OK:
+		emit_signal("atom4love_activation_error", "Erreur réseau ATOM4LOVE (code %d)" % err)
+		return
+	var result: Array = await http_atom4love.request_completed
+	var http_result: int = result[0]; var response_code: int = result[1]
+	var body: PackedByteArray = result[3]
+	if http_result != HTTPRequest.RESULT_SUCCESS:
+		emit_signal("atom4love_activation_error", "Astroport injoignable (activation ATOM4LOVE)")
+		return
+	var json := JSON.new()
+	var data: Dictionary = {}
+	if json.parse(body.get_string_from_utf8()) == OK and json.data is Dictionary:
+		data = json.data
+	if response_code == 200:
+		emit_signal("atom4love_activated", data)
+	else:
+		emit_signal("atom4love_activation_error",
+			str(data.get("message", "Échec de l'activation ATOM4LOVE (code %d)" % response_code)))
 
 # sign_and_publish() supprimée — la clé privée ne doit jamais quitter l'appareil.
 # Toute signature passe par NostrCrypto.sign_event_local() (Android/Desktop)

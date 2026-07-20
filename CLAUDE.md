@@ -28,7 +28,7 @@ Tous initialisés au boot dans `project.godot`. Pas de couplage fort entre eux �
 
 | Autoload | Rôle |
 |----------|------|
-| `Player_Origin.gd` | Profil joueur : Multipass (`nsec1→nsec2`), phase personnelle, pentagon ID, polarity (Φ/Octave) |
+| `Player_Origin.gd` | Profil joueur : Multipass (identité NOSTR aléatoire générée par le serveur, `user_nsec`/`user_npub`/`user_hex`), profil biométrique naissance/conception (`birth_unix`, `conception_unix`, etc.) utilisé côté serveur pour dériver la clé LOVE/ATOM4LOVE dédiée, phase personnelle, pentagon ID, polarity (Φ/Octave) |
 | `Phi2X_Math.gd` | Moteur physique : résonance k, phase GPS→hex, singularité optique, géométrie Goldberg |
 | `Nostr_Identity.gd` | WebSocket multi-relais NOSTR, kinds 0/1/3/7, SHA256 signatures |
 | `UPlanet_API.gd` | HTTPRequest vers `u.copylaradio.com`, forge Multipass, Schnorr signature via JS bridge |
@@ -106,7 +106,9 @@ GPS → Phi2X_Math.gps_to_hex_index() → coordonnées HEX
 
 ### Principe
 
-Au premier lancement avec un Multipass valide (`Nostr_Identity.is_initialized` + `Player_Origin.has_atom4love_profile()`), l'app publie un événement Kind 30078 `d=atom4love` sur tous les relais NOSTR. Cet événement sert de **certificat d'entrée** dans le relay strfry Astroport : il prouve que le pubkey vient bien de l'app ATOM4LOVE et que ses données biométriques sont dans les plages attendues.
+Au premier lancement avec un Multipass valide (`Nostr_Identity.is_initialized` + `Player_Origin.has_atom4love_profile()`), l'app publie un événement Kind 30078 `d=atom4love` (signé avec `Player_Origin.user_hex`, le pubkey MULTIPASS — cf. `_compute_a4l_proof(Player_Origin.user_hex)`) sur tous les relais NOSTR. Cet événement sert de **certificat d'entrée** dans le relay strfry Astroport : il prouve que le pubkey MULTIPASS vient bien de l'app ATOM4LOVE et que les données biométriques transmises (`personal_phase`, `omega_bio`) sont dans les plages attendues.
+
+Note : ce certificat d'entrée (signé MULTIPASS) est distinct de la clé LOVE/ATOM4LOVE (`.secret.love`) que le serveur Astroport dérive ensuite de façon déterministe à partir des données de naissance/conception (`Astroport.ONE/tools/atom4love_publish.py`) — la clé LOVE republie son propre événement Kind 30078 (`d=atom4love`) signé par elle-même, dédié au canal de résonance, jamais à l'identité principale ni aux paiements ẐEN. Le MULTIPASS lui-même reste toujours une identité aléatoire générée côté serveur (`Astroport.ONE/tools/make_NOSTRCARD.sh`), indépendante des données de naissance.
 
 ### Constante et proof tag
 

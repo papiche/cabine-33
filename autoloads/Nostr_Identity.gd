@@ -1,6 +1,7 @@
 extends Node
 # Bibliothèque NOSTR interne — ATOM4LOVE
-# WebSocket multi-relais, Kind 0/3, ID SHA256, dérivation nsec1→nsec2
+# WebSocket multi-relais, Kind 0/3, ID SHA256
+# (derive_nsec2_from_nsec1 : obsolète/inutilisée, voir le bloc dédié plus bas)
 
 signal relay_connected(relay_url)
 signal relay_disconnected(relay_url)
@@ -574,22 +575,20 @@ func is_following(hex: String) -> bool: return follows.has(hex)
 func is_muted(hex: String) -> bool:     return mutes.has(hex)
 
 # ───────────────────────────────────────────────
-# DÉRIVATION nsec1 → nsec2 (MULTIPASS)
+# DÉRIVATION nsec1 → nsec2 (MULTIPASS) — INUTILISÉE / OBSOLÈTE
 # ───────────────────────────────────────────────
+# Aucun appelant dans le projet (signal nsec2_derived jamais émis ailleurs) —
+# conservée pour référence historique uniquement. Le serveur (make_NOSTRCARD.sh)
+# force désormais TOUJOURS un SALT/PEPPER aléatoire pour l'identité MULTIPASS
+# (voir Phi2X_Math.gd, note en tête du bloc géométrie), donc UPlanet_API.forge_multipass()
+# n'accepte plus de salt/pepper client — dériver nsec2 depuis nsec1 de cette façon
+# n'a plus de sens et ne produirait plus une identité déterministe.
 
-func derive_nsec2_from_nsec1(nsec1_bech32: String, email: String):
-	if not nsec1_bech32.begins_with("nsec1"):
-		push_error("Nostr_Identity: format nsec1 invalide")
-		return
-	var key_mat := nsec1_bech32.substr(5)
-	if key_mat.length() < 10:
-		push_error("Nostr_Identity: nsec1 trop court")
-		return
-	var mid := key_mat.length() / 2
-	var salt   := key_mat.substr(0, mid)
-	var pepper := key_mat.substr(mid)
-	print("🔑 MULTIPASS: dérivation nsec2 (salt=%d chars, pepper=%d chars)" % [salt.length(), pepper.length()])
-	UPlanet_API.forge_multipass(email, salt, pepper,
+func derive_nsec2_from_nsec1(_nsec1_bech32: String, email: String):
+	push_warning("Nostr_Identity: derive_nsec2_from_nsec1() est obsolète — "
+		+ "forge_multipass() ne dérive plus jamais l'identité MULTIPASS d'un secret "
+		+ "fourni par le client (voir make_NOSTRCARD.sh::_A4L_BIRTH_CONTEXT).")
+	UPlanet_API.forge_multipass(email,
 		SpaceTime_Manager.current_gps.x, SpaceTime_Manager.current_gps.y)
 
 # ───────────────────────────────────────────────

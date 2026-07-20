@@ -60,7 +60,7 @@
 
 | Système propriétaire | Notre équivalent | Avantage UPlanet |
 |---|---|---|
-| **Worldcoin** (iris + World ID + crypto) | MULTIPASS (biométrie de naissance + φ_i + Ğ1) | Pas d'iris scanné, données jamais centralisées, coopératif |
+| **Worldcoin** (iris + World ID + crypto) | MULTIPASS (identité aléatoire serveur) + clé LOVE/ATOM4LOVE dérivée de la biométrie de naissance (φ_i) + Ğ1 | Pas d'iris scanné, données jamais centralisées, coopératif |
 | **Civic** (identité blockchain, VC) | WoTx2 (Kind 30503 skills attestées) | Standard W3C, pas propriétaire |
 | **ESSIF/eIDAS** (portefeuille EU, QTSP) | `.well-known/did.json` + SSSS | Open source, pas de backdoor état |
 | **Docusign** (signature électronique) | NOSTR Kind signed events | Décentralisé, pas de serveur central |
@@ -79,7 +79,7 @@
 ```
 Titre 1 : "Biometric birth-coordinate key derivation for self-sovereign digital identity"
   → Algorithme φ_i = f(date_naissance, lieu_naissance, poids)
-  → Format salt/pepper MULTIPASS
+  → Format salt/pepper de la clé secondaire LOVE/ATOM4LOVE (distincte de l'identité MULTIPASS, toujours aléatoire côté serveur — cf. make_NOSTRCARD.sh)
   → Déterminisme biométrique non-biométrique (pas d'iris/empreinte)
 
 Titre 2 : "Goldberg polyhedron hexagonal addressing for decentralized geo-social networks"
@@ -239,7 +239,7 @@ Nous avons déjà `did:nostr:{hex}`. Il faut l'aligner avec les profils recomman
 | Fonction | Passeport traditionnel | MULTIPASS UPlanet |
 |---|---|---|
 | **Preuve d'identité** | Photo + signature État | `did:nostr:{hex}` + signature cryptographique |
-| **Données biométriques** | Empreintes + iris (chiffrés) | Dérivées de naissance, non stockées centralement |
+| **Données biométriques** | Empreintes + iris (chiffrés) | Aucune pour le MULTIPASS (identité aléatoire serveur) ; la clé secondaire LOVE/ATOM4LOVE est dérivée de la naissance, non stockée centralement |
 | **Récupération si perdu** | Dossier administratif + 3 semaines | SSSS 2/3 : Captain + UPlanet → reconstruction en minutes |
 | **Révocation** | État | G1FabLab / OpenCollective (+ membre lui-même) |
 | **Portée** | Reconnu par 196 pays (bilatéral) | Reconnu par la constellation UPlanet (en expansion) |

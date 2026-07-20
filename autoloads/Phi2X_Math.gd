@@ -248,21 +248,19 @@ func get_nearest_phi_node(lat: float, lon: float) -> Dictionary:
 		"resonance_strength": 1.0 / (distance + 0.001)
 	}
 
-func derive_multipass_salt(y: int, mo: int, d: int, h: int, mi: int,
-		lat: float, lon: float, sex: int, weight: float,
-		birth_height_cm: int = 50, current_height_cm: int = 170) -> String:
-	# Format : YYYYMMDDHHMM_LAT_LON_POL_WGT_BHGT_CHGT — synchronisé avec atomic.html
-	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%d_%.1f_%d_%d" % [
-		y, mo, d, h, mi, snappedf(lat, 0.01), snappedf(lon, 0.01), sex, weight,
-		birth_height_cm, current_height_cm]
-
-func derive_multipass_pepper(conception_unix: int, lat: float, lon: float, weight: float,
-		birth_height_cm: int = 50) -> String:
-	# Format : YYYYMMDDHHMM_LAT_LON_WGT_BHGT — synchronisé avec atomic.html
-	var cd := Time.get_datetime_dict_from_unix_time(conception_unix)
-	return "%04d%02d%02d%02d%02d_%.2f_%.2f_%.1f_%d" % [
-		cd.year, cd.month, cd.day, cd.hour, cd.minute,
-		snappedf(lat, 0.01), snappedf(lon, 0.01), weight, birth_height_cm]
+# NOTE : derive_multipass_salt()/derive_multipass_pepper() ont été supprimées.
+# L'identité MULTIPASS n'est JAMAIS dérivée des données de naissance — le
+# serveur (UPassport /g1nostr → Astroport.ONE make_NOSTRCARD.sh) force
+# toujours un SALT/PEPPER aléatoire dès qu'un contexte "birth-derived" est
+# détecté (voir make_NOSTRCARD.sh::_A4L_BIRTH_CONTEXT). Seule la clé secondaire
+# .secret.love (canal ATOM4LOVE) est dérivée des données de naissance/
+# conception, et c'est le SERVEUR qui effectue cette dérivation (PBKDF2
+# "uplanet-a4l-v1", atom4love_activate.sh → atom4love_publish.py) à partir des
+# champs bruts (birth_datetime, birth_lat, birth_lon, birth_weight, polarity,
+# conception_datetime) envoyés via UPlanet_API.activate_atom4love() —
+# jamais de salt/pepper pré-calculé côté client pour ce canal non plus.
+# Voir zelkova/lib/g1/multipass_service.dart (createMultipass / activateAtom4Love)
+# pour le modèle de référence à deux appels séparés suivi par TabProfil.gd.
 
 # ── Adressage hexagonal propriétaire ATOM4LOVE ───────────────────────────────
 # Format : a4l:P<XX>H<QQQRRR>

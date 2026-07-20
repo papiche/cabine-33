@@ -136,9 +136,9 @@ var decoded := Phi2X_Math.decode_geo_tag("a4l:P02H820B7F6C")
 
 ---
 
-## 🔐 MULTIPASS — Dérivation Salt / Pepper
+## 🔐 Clé LOVE (ATOM4LOVE) — Dérivation Salt / Pepper
 
-Le MULTIPASS est construit par dérivation **déterministe** de données biométriques de naissance. Les mêmes données produisent toujours les mêmes clés, sur n'importe quelle station Astroport.
+> **Important :** le MULTIPASS (identité NOSTR principale du compte, `.secret.nostr`) n'est **jamais** dérivé des données de naissance — le serveur Astroport (`Astroport.ONE/tools/make_NOSTRCARD.sh`) lui attribue toujours un secret aléatoire (`/dev/urandom`), même quand l'app fournit un Salt/Pepper biométrique. Le Salt/Pepper décrit ci-dessous sert uniquement à dériver la clé secondaire **LOVE/ATOM4LOVE** (`.secret.love`, canal de résonance/rencontre), construite par dérivation **déterministe** de données biométriques de naissance sur le serveur (`Astroport.ONE/tools/atom4love_publish.py`). Les mêmes données produisent toujours la même clé LOVE, sur n'importe quelle station Astroport.
 
 ### SALT — identité de naissance
 
@@ -168,11 +168,11 @@ Exemple : poids 3.2 kg → gestation = 278.8 jours (≈ 9 mois 4 jours avant la 
 
 Le lat/lon du lieu de naissance est **réutilisé** dans le pepper (pas le lieu de conception — celui-ci est une donnée ATOM4LOVE distincte, non liée au MULTIPASS).
 
-### Séparation MULTIPASS vs profil ATOM4LOVE
+### Séparation clé LOVE vs profil ATOM4LOVE
 
 | Donnée | Rôle | Modifiable ? |
 |---|---|---|
-| Date + heure + lieu naissance + sexe + poids | **Salt / Pepper → clés crypto** | ❌ jamais |
+| Date + heure + lieu naissance + sexe + poids | **Salt / Pepper → clé LOVE (jamais le MULTIPASS)** | ❌ jamais |
 | `birth_utc_offset_h` | Correction φ_i (heure solaire) | ✅ oui |
 | Date/heure/lieu conception (manuel) | Portail Goldberg | ✅ oui |
 | Taille (cm) | ω_bio uniquement | ✅ oui |

@@ -294,6 +294,8 @@ func _connect_signals():
 	UPlanet_API.connect("multipass_needs_pass",   Callable(self, "_on_multipass_needs_pass"))
 	UPlanet_API.connect("multipass_pass_invalid", Callable(self, "_on_multipass_pass_invalid"))
 	UPlanet_API.connect("api_error",              Callable(self, "_on_multipass_error"))
+	UPlanet_API.connect("atom4love_activated",        Callable(self, "_on_atom4love_activated"))
+	UPlanet_API.connect("atom4love_activation_error", Callable(self, "_on_atom4love_activation_error"))
 	UPlanet_API.connect("network_n2_analyzed",    Callable(self, "_on_n2_analyzed"))
 	UPlanet_API.connect("sync_completed",         Callable(self, "_on_sync_completed"))
 	UPlanet_API.connect("udrive_uploaded",        Callable(self, "_on_udrive_uploaded"))
@@ -1571,7 +1573,27 @@ func _on_multipass_success(data):
 	add_log("⚛ MULTIPASS créé ! Configurez votre profil ATOM4LOVE.")
 	if Player_Origin.has_atom4love_profile():
 		Nostr_Identity.publish_atom4love_cert()
+	# Activation ATOM4LOVE (.secret.love, dérivée des données de naissance) —
+	# TOUJOURS un appel SÉPARÉ, après confirmation que le MULTIPASS existe bien
+	# (Player_Origin.user_pass vient d'être rempli par init_from_multipass ci-dessus).
+	# Voir UPlanet_API.activate_atom4love() / TabProfil._on_forge_pressed().
+	if is_instance_valid(_tab_profil) and _tab_profil.has_pending_atom4love_activation():
+		UPlanet_API.activate_atom4love(
+			Player_Origin.user_email, Player_Origin.user_pass,
+			_tab_profil.pending_atom4love_birth_datetime,
+			_tab_profil.pending_atom4love_birth_lat, _tab_profil.pending_atom4love_birth_lon,
+			_tab_profil.pending_atom4love_birth_weight,
+			_tab_profil.pending_atom4love_birth_place,
+			_tab_profil.pending_atom4love_conception_datetime,
+			_tab_profil.pending_atom4love_conception_place,
+			_tab_profil.pending_atom4love_polarity)
 	call_deferred("_show_cooperative_invite")
+
+func _on_atom4love_activated(_data):
+	add_log("⚛ Profil ATOM4LOVE activé (clé LOVE dérivée côté serveur).")
+
+func _on_atom4love_activation_error(msg: String):
+	add_log("⚠ Activation ATOM4LOVE différée : " + msg)
 
 func _on_multipass_error(msg):
 	var status = _find_in_tab(TAB_PROFIL, "MultipassStatus") as Label
