@@ -1,0 +1,16 @@
+ATOM4LOVE is a cooperative social app rooted in the Astroport / UPlanet Web3
+ecosystem. It computes personal resonance (Mayan Kin / Tzolkin calendar), finds
+nearby atoms via BLE+WiFi, and visualises harmonic encounters through three
+animated modes (PROFIL · MATCH · THÉORIE).
+
+Key features:
+
+* Mayan Kin colour wheel and 260-day Tzolkin resonance engine
+* Proximity atom scanner (BLE, WiFi A4L-* SSID broadcast)
+* NOSTR identity integration (NIP-39, WoTx2 Web-of-Trust)
+* ZEN / Ğ1 cooperative accounting layer (UPlanet stablecoin)
+* Offline QR code generation (pure GDScript, no external lib)
+* 4 visual themes (dark · light · solarized dark/light)
+
+Privacy: no tracking, no ads, GPS used only for local node
+Phi-resonance computation (opt-in).
