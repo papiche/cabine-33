@@ -173,6 +173,23 @@ open("$PRESETS_CFG", "w").write(cfg)
 EOF
 echo "✅ Keystore debug injecté : $KEYSTORE"
 
+# ── Injection du keystore production (si disponible) ─────────────────────────
+PROD_JKS="$HOME/.zen/keystores/cabine33-prod.jks"
+if [ -f "$HOME/.ipfs/swarm.key" ] && [ -f "$PROD_JKS" ]; then
+    KEYSTORE_PWD=$(cat "$HOME/.ipfs/swarm.key" | sha256sum | awk '{print $1}' | head -c 24)
+    python3 - <<EOF
+import re
+cfg = open("$PRESETS_CFG").read()
+cfg = re.sub(r'keystore/release="[^"]*"',          'keystore/release="$PROD_JKS"',       cfg)
+cfg = re.sub(r'keystore/release_user="[^"]*"',     'keystore/release_user="upload"',     cfg)
+cfg = re.sub(r'keystore/release_password="[^"]*"', 'keystore/release_password="$KEYSTORE_PWD"', cfg)
+open("$PRESETS_CFG", "w").write(cfg)
+EOF
+    echo "✅ Keystore production injecté : $PROD_JKS"
+else
+    echo "⚠️  Keystore production absent — APK release non signé"
+fi
+
 # Restaurer export_presets.cfg à sa version vide après chaque build (trap)
 _restore_presets() { cp "$PRESETS_BACKUP" "$PRESETS_CFG" && rm -f "$PRESETS_BACKUP"; }
 trap _restore_presets EXIT
