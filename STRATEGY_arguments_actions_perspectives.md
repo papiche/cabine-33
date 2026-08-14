@@ -166,34 +166,19 @@ Coût : 0€. Effet : permanent, immédiatement opposable aux offices de brevets
 │  ① SSSS 2/3  ← Récupération clé impossible sans la constellation
 │                 Un fork centralisé ne peut pas migrer les users │
 │                                                             │
-│  ② a4l_proof ← Le relay Astroport rejette les apps non certifiées
-│  (Kind 30078)   G1FabLab contrôle AUTHORIZED_APPS (Kind 30800) │
-│                                                             │
-│  ③ Toile de   ← Pas de serveur central à "racheter"        │
+│  ② Toile de   ← Pas de serveur central à "racheter"        │
 │     Confiance   Chaque Capitaine est souverain             │
 │     N²                                                      │
 │                                                             │
-│  ④ Économie   ← Les ẐEN et Ğ1 circulent DANS le réseau    │
+│  ③ Économie   ← Les ẐEN et Ğ1 circulent DANS le réseau    │
 │     ẐEN         Un centralisateur devrait recréer la monnaie │
 │                                                             │
-│  ⑤ Portail    ← L'identité est liée au lieu de conception  │
+│  ④ Portail    ← L'identité est liée au lieu de conception  │
 │     Goldberg    (Hexagone + Pentagon = adresse unique)      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 La certification coopérative comme garde-fou
-
-Le système `a4l_proof` (Kind 30078) est déjà une **certification technique** :
-
-```gdscript
-# ATOM4LOVE_v1 = salt de certification de la version courante
-# SHA256(pubkey + ":" + "ATOM4LOVE_v1") = proof non falsifiable
-const A4L_PROOF_SALT := "ATOM4LOVE_v1"
-```
-
-**Pour renforcer :** Le `AUTHORIZED_APPS` dans le Kind 30800 (config coopérative) pourrait évoluer vers un **registre de certification** formel, consultable publiquement, auditéable, avec critères documentés — aligné avec la marque de certification INPI.
-
-### 3.3 Le système WoTx2 comme justice interne
+### 3.2 Le système WoTx2 comme justice interne
 
 `justice.html` (Kind 1984 + Kind 30506) est déjà fonctionnel pour :
 - Conflits entre membres de la constellation
@@ -204,7 +189,7 @@ const A4L_PROOF_SALT := "ATOM4LOVE_v1"
 - Charte d'utilisation de la marque "Certifié UPlanet" (dans collaborative-editor)
 - Procédure de "délistage" d'une station qui viole la charte
 - Tribunal de 1ère instance N1 : les Capitaines de la constellation
-- Appel N2 : G1FabLab + MadeInZen + entités partenaires
+- Appel N2 : G1FabLab + MadeInZion + entités partenaires
 
 ---
 
@@ -270,7 +255,6 @@ Un acteur centralisé (GAFAM ou concurrent) devrait :
 
 **Forces :**
 - AGPL v3 ferme la faille SaaS — tout concurrent qui utilise le code doit l'ouvrir
-- Le `a4l_proof` sur le relay crée une "marque technique" de facto
 - La blockchain Ğ1 offre une comptabilité transparente opposable
 - Les publications NOSTR constituent des preuves d'antériorité datées et signées
 
@@ -481,7 +465,6 @@ Couche 5 (Engagement civique)
 
 **Réponse :**
 - L'AGPL oblige "SuperPlanet" à publier son code (avantage pour nous : transparence forcée)
-- Le `a4l_proof` empêche ses apps de se connecter à la constellation officielle
 - La marque déposée empêche l'usurpation du nom
 - La communauté existante est liée par SSSS (non migratable facilement)
 
@@ -550,12 +533,11 @@ Couche 5 (Engagement civique)
 │  ② Architecture sans serveur central = impossible à racheter  │
 │  ③ Économie Ğ1/ẐEN = impossible à spéculer                   │
 │  ④ SSSS 2/3 = impossible à migrer centralement               │
-│  ⑤ Certification a4l: = seule la constellation peut valider  │
-│  ⑥ Justice WoTx2 = gouvernance interne auto-suffisante       │
-│  ⑦ 5 entités partenaires = impossible à capturer en 1 coup    │
-│  ⑧ AGPL = tout code dérivé reste ouvert et auditable         │
-│  ⑨ Ancrage physique (MadeInZion, ZICMAMA) = pas que virtuel  │
-│  ⑩ Communauté Ğ1 existante = base sociale déjà présente     │
+│  ⑤ Justice WoTx2 = gouvernance interne auto-suffisante       │
+│  ⑥ 5 entités partenaires = impossible à capturer en 1 coup    │
+│  ⑦ AGPL = tout code dérivé reste ouvert et auditable         │
+│  ⑧ Ancrage physique (G1FabLab, ZICMAMA) = pas que virtuel  │
+│  ⑨ Communauté Ğ1 existante = base sociale déjà présente     │
 │                                                               │
 │  → C'est un bien commun numérique construit pour durer,      │
 │    par ceux qui le vivent, pour ceux qui veulent en être      │
@@ -572,7 +554,7 @@ Couche 5 (Engagement civique)
 ---
 
 **Références internes :**
-- `autoloads/Nostr_Identity.gd` — Protocole a4l_proof et AUTHORIZED_APPS
+- `autoloads/Nostr_Identity.gd` — Protocole a4l_proof (marqueur de format, sans liste blanche)
 - `autoloads/Phi2X_Math.gd` — Algorithme φ_i et géométrie Goldberg
 - `RUNTIME/KIN.daily.sh` — Newsletter Oracle quotidienne
 - `RUNTIME/ZEN.ECONOMY.sh` — Moteur économique 3×1/3

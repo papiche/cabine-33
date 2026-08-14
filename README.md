@@ -203,17 +203,11 @@ version/name="1.2.0"
 
 ### 2. Décider si le proof salt change
 
-Le proof salt (`A4L_PROOF_SALT` dans `autoloads/Nostr_Identity.gd`) identifie la **lignée cryptographique** de l'app. Il ne change que lors d'une rupture de confiance (fuite de salt, fork non autorisé, changement de protocole).
+Le proof salt (`A4L_PROOF_SALT` dans `autoloads/Nostr_Identity.gd`) identifie la version de l'app dans le tag `a4l_proof`. Le relay `filter/30078.sh` n'exige plus qu'un `a4l_proof` non vide — il n'y a plus de liste blanche à maintenir, donc changer de salt n'a **aucun effet côté relay** (pas de gain ni de risque de rupture d'accès). Le versionner reste utile côté client pour distinguer les certificats émis par différentes versions de l'app, mais ne sert plus de mécanisme de révocation.
 
-| Situation | Action |
-|-----------|--------|
-| Correctif, nouvelle fonctionnalité | Garder `ATOM4LOVE_v1` — aucun changement relay |
-| Rupture de confiance / nouveau protocole | Passer à `ATOM4LOVE_v2` + enregistrer côté relay |
-
-Si le salt change :
 ```gdscript
 # autoloads/Nostr_Identity.gd
-const A4L_PROOF_SALT := "ATOM4LOVE_v2"   # ← nouveau salt
+const A4L_PROOF_SALT := "ATOM4LOVE_v2"   # ← nouveau salt, si souhaité
 ```
 
 ### 3. Construire les artefacts
@@ -233,32 +227,7 @@ const A4L_PROOF_SALT := "ATOM4LOVE_v2"   # ← nouveau salt
 
 ### 4. Certification coopérative (relay NOSTR)
 
-C'est l'étape qui **autorise officiellement** la nouvelle version à se connecter aux relays Astroport de la constellation.
-
-**Si le salt n'a pas changé** → aucune action nécessaire. Les relays continuent d'accepter les certificats `ATOM4LOVE_v1` existants.
-
-**Si le salt a changé** → l'opérateur de la coopérative enregistre le nouveau salt :
-
-```bash
-# Sur la station Astroport de référence
-source ~/.zen/Astroport.ONE/tools/cooperative_config.sh
-
-# Ajouter le nouveau salt (les deux coexistent pendant la migration)
-coop_app_add "ATOM4LOVE_v2"
-
-# Vérifier la liste active
-coop_config_get AUTHORIZED_APPS
-# → "ATOM4LOVE_v1,ATOM4LOVE_v2"
-```
-
-La config coopérative (Kind 30800) est automatiquement propagée à **tous les relays de la constellation** via `backfill_constellation.sh` — sans redémarrage de strfry.
-
-Quand la migration est terminée (plus aucun client avec l'ancien salt actif) :
-```bash
-coop_app_remove "ATOM4LOVE_v1"
-```
-
-> La certification est publique et vérifiable sur n'importe quel relay Astroport via le Kind 30800 du DID coopératif.
+Aucune action requise : le relay `filter/30078.sh` accepte tout certificat Kind 30078 `d=atom4love` dont le tag `a4l_proof` est non vide, quel que soit le salt utilisé. La nouvelle version se connecte donc immédiatement à tous les relays Astroport de la constellation dès sa publication.
 
 ### 5. Déployer
 
@@ -287,8 +256,6 @@ git push origin "v1.2.0"
 - [ ] `export_presets.cfg` → `version/code` et `version/name` incrémentés
 - [ ] `./create_apk.sh` → APK debug + release générés sans erreur
 - [ ] `./create_web.sh` → build web généré sans erreur
-- [ ] Si salt changé : `coop_app_add "ATOM4LOVE_vN"` exécuté sur la station de référence
-- [ ] Propagation Kind 30800 vérifiée sur au moins 2 relays de la constellation
 - [ ] APK installable et certificat Kind 30078 accepté par le relay
 - [ ] Tag git poussé
 

@@ -250,7 +250,7 @@ func _on_wavetable_ready(_wt: PackedFloat32Array):
 		if old: old.queue_free()
 		mic_panel.get_parent().add_child(btn_listen)
 	# Republier le certificat ATOM4LOVE avec inst_id=1 (voix)
-	if Player_Origin.is_initialized:
+	if Player_Origin.has_love_identity():
 		Nostr_Identity.publish_atom4love_cert()
 	# Rafraîchir le label d'instrument
 	var inst_lbl := find_child("InstLbl", true, false) as Label
@@ -677,7 +677,7 @@ func _on_birth_save():
 		rl.modulate = UI_Theme.text_positive()
 		rl.text = "✅ φ_i = %.5f  |  ω_bio = %.2f Hz  |  %s" % [
 			Player_Origin.personal_phase, Player_Origin.omega_bio, Player_Origin.get_polarity_label()]
-	if Player_Origin.is_initialized: Nostr_Identity.publish_atom4love_cert()
+	if Player_Origin.has_love_identity(): Nostr_Identity.publish_atom4love_cert()
 	var ka := Kin_Maya.calc_kin_unix(b_unix)
 	var anim := get_parent()
 	while anim and not anim.has_method("set_kin"): anim = anim.get_parent()

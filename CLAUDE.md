@@ -148,14 +148,7 @@ Nostr_Identity.publish_atom4love_cert()
 
 ### Mettre à jour la version de l'app
 
-1. Changer `A4L_PROOF_SALT` dans `Nostr_Identity.gd` (ex. `"ATOM4LOVE_v2"`)
-2. Ajouter le nouveau salt côté relay :
-   ```bash
-   source ~/.zen/Astroport.ONE/tools/cooperative_config.sh
-   coop_app_add "ATOM4LOVE_v2"
-   ```
-3. L'ancien salt reste actif jusqu'à la migration complète des utilisateurs.
-4. Quand tous les clients ont migré : `coop_app_remove "ATOM4LOVE_v1"`
+Changer simplement `A4L_PROOF_SALT` dans `Nostr_Identity.gd` (ex. `"ATOM4LOVE_v2"`) — le relay `filter/30078.sh` n'exige plus qu'un `a4l_proof` non vide, pas de liste blanche d'apps à maintenir côté config coopérative.
 
 ### Ajouter une nouvelle app certifiée
 
@@ -163,9 +156,8 @@ Toute app mobile souhaitant accéder au relay Astroport doit :
 1. Choisir un salt unique (`NOMAPP_v1`)
 2. Calculer `a4l_proof = SHA256(pubkey + ":" + "NOMAPP_v1")` côté client
 3. Publier un Kind 30078 `d=atom4love` avec ce tag
-4. L'opérateur coopératif enregistre le salt : `coop_app_add "NOMAPP_v1"`
 
-Le relay `filter/30078.sh` vérifie automatiquement la liste `AUTHORIZED_APPS` propagée dans la config coopérative (Kind 30800). Les nouvelles apps sont reconnues sur **tous les relays constellation** sans redémarrage.
+Le relay `filter/30078.sh` accepte tout `a4l_proof` non vide — les nouvelles apps fonctionnent immédiatement, sur tous les relays constellation, sans aucune inscription côté config coopérative.
 
 ## Mécanique Cabine Téléphonique
 

@@ -200,6 +200,35 @@ func _ready():
 		Nostr_Identity.connect_relay_list()
 		if not Player_Origin.has_atom4love_profile():
 			add_log("⚛ Profil ATOM4LOVE incomplet. Touchez ☰ → ⚛ PROFIL.")
+		else:
+			_migrate_love_identity_if_needed()
+
+## Rétrocompatibilité : comptes créés avant l'introduction de la clé LOVE
+## indépendante (activate_atom4love) — à l'époque, le certificat ATOM4LOVE
+## était signé directement par le MULTIPASS. Sans cette migration, ces
+## comptes ne republieraient plus jamais rien (publish_atom4love_cert/
+## publish_kind7_resonance exigent désormais Player_Origin.has_love_identity()).
+func _migrate_love_identity_if_needed():
+	if Player_Origin.has_love_identity(): return
+	if Player_Origin.user_pass.is_empty(): return  # pas de moyen de s'authentifier auprès du serveur
+	var dt := Time.get_datetime_dict_from_unix_time(Player_Origin.birth_unix)
+	var birth_datetime := "%04d-%02d-%02dT%02d:%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
+	var birth_place := "%.4f, %.4f" % [Player_Origin.birth_lat, Player_Origin.birth_lon] \
+		if (Player_Origin.birth_lat != 0.0 or Player_Origin.birth_lon != 0.0) else ""
+	var conception_datetime := ""
+	var conception_place := ""
+	if Player_Origin.conception_unix > 0:
+		var cd := Time.get_datetime_dict_from_unix_time(Player_Origin.conception_unix)
+		conception_datetime = "%04d-%02d-%02dT%02d:%02d" % [cd.year, cd.month, cd.day, cd.hour, cd.minute]
+		var clat := Player_Origin.conception_lat if Player_Origin.conception_lat != 0.0 else Player_Origin.birth_lat
+		var clon := Player_Origin.conception_lon if Player_Origin.conception_lon != 0.0 else Player_Origin.birth_lon
+		conception_place = "%.4f, %.4f" % [clat, clon]
+	add_log("⚛ Migration : activation de votre clé LOVE dédiée…")
+	UPlanet_API.activate_atom4love(
+		Player_Origin.user_email, Player_Origin.user_pass,
+		birth_datetime, Player_Origin.birth_lat, Player_Origin.birth_lon,
+		str(Player_Origin.weight_kg), birth_place, conception_datetime, conception_place,
+		str(Player_Origin.biological_sex))
 
 func _input(event: InputEvent):
 	# _input (avant que les Controls ne consomment) — nécessaire pour les DRAGS :
@@ -1571,12 +1600,12 @@ func _on_multipass_success(data):
 	_rebuild_tab(TAB_PROFIL); _rebuild_tab(TAB_RESEAU)
 	_check_authorization(); Nostr_Identity.connect_relay_list()
 	add_log("⚛ MULTIPASS créé ! Configurez votre profil ATOM4LOVE.")
-	if Player_Origin.has_atom4love_profile():
-		Nostr_Identity.publish_atom4love_cert()
 	# Activation ATOM4LOVE (.secret.love, dérivée des données de naissance) —
 	# TOUJOURS un appel SÉPARÉ, après confirmation que le MULTIPASS existe bien
 	# (Player_Origin.user_pass vient d'être rempli par init_from_multipass ci-dessus).
-	# Voir UPlanet_API.activate_atom4love() / TabProfil._on_forge_pressed().
+	# publish_atom4love_cert() n'est déclenché qu'une fois la clé LOVE reçue —
+	# voir _on_atom4love_activated() ci-dessous. Voir UPlanet_API.activate_atom4love()
+	# / TabProfil._on_forge_pressed().
 	if is_instance_valid(_tab_profil) and _tab_profil.has_pending_atom4love_activation():
 		UPlanet_API.activate_atom4love(
 			Player_Origin.user_email, Player_Origin.user_pass,
@@ -1589,8 +1618,15 @@ func _on_multipass_success(data):
 			_tab_profil.pending_atom4love_polarity)
 	call_deferred("_show_cooperative_invite")
 
-func _on_atom4love_activated(_data):
+func _on_atom4love_activated(data):
+	Player_Origin.set_love_identity(
+		str(data.get("love_nsec", "")), str(data.get("love_npub", "")), str(data.get("love_hex", "")))
 	add_log("⚛ Profil ATOM4LOVE activé (clé LOVE dérivée côté serveur).")
+	# Pas de republish immédiat ici : le serveur (atom4love_publish.py) vient de
+	# publier le certificat Kind 30078 — géo (tags "g"), "a5l" et email chiffré
+	# UPLANETNAME inclus. Republier depuis le client écraserait cette version
+	# (NIP-33, replaceable par pubkey+d) avec une version plus pauvre — voir
+	# publish_atom4love_cert() pour les mises à jour ultérieures (voix, etc.).
 
 func _on_atom4love_activation_error(msg: String):
 	add_log("⚠ Activation ATOM4LOVE différée : " + msg)

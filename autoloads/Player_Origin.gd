@@ -15,6 +15,15 @@ var user_hex: String = ""
 var user_ipns: String = ""
 var user_salt: String = ""
 var user_pepper: String = ""
+# Clé LOVE (.secret.love) — dérivée déterministiquement des données de
+# naissance/conception par le serveur (POST /atom4love/activate, voir
+# Astroport.ONE/tools/atom4love_publish.py). DISTINCTE du MULTIPASS
+# (user_hex/user_nsec) : jamais co-dérivée du wallet G1, ne sert qu'à
+# signer le certificat ATOM4LOVE (Kind 30078) et la résonance Kind 7 —
+# même architecture que zelkova (SharedPreferencesHelperV2.setLoveNsec).
+var user_love_nsec: String = ""
+var user_love_npub: String = ""
+var user_love_hex: String = ""
 # Code PASS reçu à la création du MULTIPASS (email/zine) — sert à récupérer
 # le compte (auth pass_code de /g1nostr) quand l'app est réinstallée : la
 # resoumission des données de naissance seule ne suffit plus, l'identité
@@ -68,6 +77,9 @@ func init_from_multipass(data: Dictionary):
 	user_pepper     = data.get("pepper", "")
 	user_pass       = data.get("pass", "")
 	home_node_hex   = data.get("home_node_hex", "")
+	user_love_nsec  = data.get("love_nsec", "")
+	user_love_npub  = data.get("love_npub", "")
+	user_love_hex   = data.get("love_hex", "")
 
 	## NAISSANCE
 	if data.has("birth_unix"): birth_unix = data["birth_unix"]
@@ -141,6 +153,7 @@ func reset():
 	user_email = ""; user_npub = ""; user_nsec = ""
 	user_hex = ""; user_g1pub = ""; user_ipns = ""
 	user_salt = ""; user_pepper = ""; user_pass = ""
+	user_love_nsec = ""; user_love_npub = ""; user_love_hex = ""
 	origin_pentagon_id = -1; base_frequency = 0.0
 	birth_unix = 0; conception_unix = 0
 	birth_lat = 0.0; birth_lon = 0.0
@@ -155,6 +168,18 @@ func reset():
 
 func has_atom4love_profile() -> bool:
 	return birth_unix > 0
+
+## Appelée après un POST /atom4love/activate réussi (voir
+## Main_UI._on_atom4love_activated) : persiste la clé LOVE reçue du serveur
+## pour que Nostr_Identity puisse l'utiliser comme identité de signature.
+func set_love_identity(nsec: String, npub: String, hex: String) -> void:
+	user_love_nsec = nsec
+	user_love_npub = npub
+	user_love_hex  = hex
+	save_multipass()
+
+func has_love_identity() -> bool:
+	return user_love_nsec != "" and user_love_hex != ""
 
 func calculate_vibrational_precision() -> int:
 	if birth_unix <= 0: return 0
@@ -195,6 +220,7 @@ func save_multipass():
 		"hex": user_hex, "g1pub": user_g1pub, "nostrns": user_ipns,
 		"salt": user_salt, "pepper": user_pepper, "pass": user_pass,
 		"home_node_hex": home_node_hex,
+		"love_nsec": user_love_nsec, "love_npub": user_love_npub, "love_hex": user_love_hex,
 		"birth_unix": birth_unix, "conception_unix": conception_unix,
 		"birth_lat": birth_lat, "birth_lon": birth_lon,
 		"conception_lat": conception_lat, "conception_lon": conception_lon,

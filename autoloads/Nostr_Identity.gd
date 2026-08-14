@@ -55,7 +55,7 @@ var _initialized_relays: Dictionary = {}
 # --- ÉTAT DU CHARGEMENT nostr.bundle.js ---
 var _nostr_bundle_injected: bool = false
 var _nostr_bundle_ready: bool = false
-var _pending_sign_queue: Array = []  # Événements en attente de bundle JS
+var _pending_sign_queue: Array = []  # {"ev":Dictionary,"nsec_override":String} en attente de bundle JS
 
 func _ready():
 	set_process(false)
@@ -262,9 +262,9 @@ func _broadcast(text: String):
 # CONSTRUCTION D'ÉVÉNEMENTS NOSTR
 # ───────────────────────────────────────────────
 
-func make_event(kind: int, content: String, tags: Array = []) -> Dictionary:
+func make_event(kind: int, content: String, tags: Array = [], pubkey_override: String = "") -> Dictionary:
 	return {
-		"pubkey": Player_Origin.user_hex,
+		"pubkey": pubkey_override if pubkey_override != "" else Player_Origin.user_hex,
 		"created_at": int(Time.get_unix_time_from_system()),
 		"kind": kind,
 		"tags": tags,
@@ -281,28 +281,29 @@ func compute_event_id(ev: Dictionary) -> String:
 	ctx.update(serialized.to_utf8_buffer())
 	return ctx.finish().hex_encode()
 
-func sign_and_send(ev: Dictionary):
+func sign_and_send(ev: Dictionary, nsec_override: String = ""):
 	ev["id"] = compute_event_id(ev)
 	# Accepter nsec1... (bech32) ET hex brut 64 chars — nostr-tools gère les deux
-	var nsec := Player_Origin.user_nsec
+	var nsec := nsec_override if nsec_override != "" else Player_Origin.user_nsec
 	var is_signable_web := nsec.begins_with("nsec1") or (nsec.length() == 64 and nsec.is_valid_hex_number())
 	if OS.get_name() == "Web" and is_signable_web:
 		if not _nostr_bundle_ready:
-			_pending_sign_queue.append(ev)
+			var queued := {"ev": ev, "nsec_override": nsec_override}
+			_pending_sign_queue.append(queued)
 			if not await _ensure_nostr_ready():
 				push_error("NOSTR: NostrTools indisponible — signing local GDScript")
-				_pending_sign_queue.erase(ev)
-				_sign_local_and_publish(ev)
+				_pending_sign_queue.erase(queued)
+				_sign_local_and_publish(ev, nsec_override)
 				return
 			_flush_sign_queue()
 			return
-		_sign_via_js(ev)
+		_sign_via_js(ev, nsec_override)
 	else:
 		# Android/Desktop : signe LOCALEMENT (nsec ne quitte pas le téléphone)
-		_sign_local_and_publish(ev)
+		_sign_local_and_publish(ev, nsec_override)
 
-func _sign_local_and_publish(ev: Dictionary):
-	var nsec := Player_Origin.user_nsec
+func _sign_local_and_publish(ev: Dictionary, nsec_override: String = ""):
+	var nsec := nsec_override if nsec_override != "" else Player_Origin.user_nsec
 	if nsec.is_empty() or nsec == "ANON":
 		push_error("NOSTR: pas de nsec — événement abandonné"); return
 	var signed := NostrCrypto.sign_event_local(ev, nsec)
@@ -323,16 +324,16 @@ func _ensure_nostr_ready() -> bool:
 func _flush_sign_queue():
 	var queue := _pending_sign_queue.duplicate()
 	_pending_sign_queue.clear()
-	for queued_ev in queue:
-		_sign_via_js(queued_ev)
+	for queued in queue:
+		_sign_via_js(queued["ev"], queued.get("nsec_override", ""))
 
-func _sign_via_js(ev: Dictionary):
+func _sign_via_js(ev: Dictionary, nsec_override: String = ""):
 	if not _check_nostr_ready():
 		push_error("NOSTR: NostrTools pas encore chargé — événement abandonné"); return
 
 	# IMPORTANT: concaténation (pas %) — ev_json peut contenir des '%' dans les URLs
 	var ev_json := JSON.stringify(ev)
-	var nsec := Player_Origin.user_nsec
+	var nsec := nsec_override if nsec_override != "" else Player_Origin.user_nsec
 	# Compatibilité v1 (finishEvent) et v2 (finalizeEvent) + hex brut 64 chars
 	# nostr-tools v2 finalizeEvent accepte Uint8Array directement (pas seulement nsec1)
 	var js := (
@@ -412,14 +413,20 @@ func _compute_a4l_proof(hex_pubkey: String) -> String:
 	return ctx.finish().hex_encode()
 
 func publish_atom4love_cert():
-	if not Player_Origin.is_initialized:
-		return  # Silencieux : MULTIPASS pas encore créé, état normal avant onboarding
+	if not Player_Origin.has_love_identity():
+		return  # Silencieux : clé LOVE pas encore activée (POST /atom4love/activate)
 	if not Player_Origin.has_atom4love_profile():
 		return  # Silencieux : profil de naissance pas encore saisi, état attendu
-	var proof: String  = _compute_a4l_proof(Player_Origin.user_hex)
+	var proof: String  = _compute_a4l_proof(Player_Origin.user_love_hex)
 	var kin_dict: Dictionary = Kin_Maya.calc_kin_unix(Player_Origin.birth_unix)
 	var kin_num: int   = kin_dict.get("kin", 0)
-	# Contenu enrichi — synchronisé avec kin_oracle.sh._scan_a4l_phi()
+	# Contenu enrichi — synchronisé avec kin_oracle.sh._scan_a4l_phi(). PAS de
+	# champ "email" ici : côté serveur (atom4love_publish.py), l'email est
+	# chiffré avec $UPLANETNAME (partagé uniquement par les stations de la
+	# constellation, jamais par les clients) avant publication — un client
+	# GDScript n'a et ne doit jamais avoir ce secret. Cette republication
+	# (déclenchée après une mise à jour locale : voix, profil…) ne touche donc
+	# pas au lien email↔compte, déjà établi par le certificat serveur.
 	var content := JSON.stringify({
 		"personal_phase":    Player_Origin.personal_phase,
 		"omega_bio":         Player_Origin.omega_bio,
@@ -429,14 +436,16 @@ func publish_atom4love_cert():
 		"app":               "atom4love",
 		"version":           2                               # v2 : champs enrichis
 	})
+	# Signé par la clé LOVE (.secret.love), jamais par le MULTIPASS — même
+	# architecture que zelkova/atomic.html (voir Player_Origin.user_love_hex).
 	var ev := make_event(30078, content, [
 		["d",         "atom4love"],
 		["app",       "atom4love"],
 		["a4l_proof", proof],
 		["k",         "%.6f" % Player_Origin.personal_phase],  # index rapide relay
 		["kin",       str(kin_num)]                             # index rapide relay
-	])
-	sign_and_send(ev)
+	], Player_Origin.user_love_hex)
+	sign_and_send(ev, Player_Origin.user_love_nsec)
 	print("⚛ ATOM4LOVE: certificat Kind 30078 publié (φ=%.4f ω=%.4f kin=%d proof=%s…)" % [
 		Player_Origin.personal_phase, Player_Origin.omega_bio, kin_num, proof.substr(0, 8)])
 
@@ -447,7 +456,7 @@ func publish_atom4love_cert():
 # Format content : "+k" où k ∈ [0.5, 1.0] — jamais ambigu avec un montant ẐEN > 1.
 # ───────────────────────────────────────────────
 func publish_kind7_resonance(target_hex: String, k: float):
-	if not Player_Origin.is_initialized: return
+	if not Player_Origin.has_love_identity(): return  # signée par la clé LOVE (voir publish_atom4love_cert)
 	if target_hex.is_empty(): return
 	var k_str := "+%.4f" % k
 	var ev := make_event(7, k_str, [
@@ -456,8 +465,8 @@ func publish_kind7_resonance(target_hex: String, k: float):
 		["t", "a4l-resonance"],       # distingue des paiements ẐEN
 		["k", "%.4f" % k],            # tag indexable pour le relay
 		["singularity", "1" if k >= 0.95 else "0"]
-	])
-	sign_and_send(ev)
+	], Player_Origin.user_love_hex)
+	sign_and_send(ev, Player_Origin.user_love_nsec)
 	print("⚛ ATOM4LOVE: Kind 7 résonance → %s k=%.4f" % [target_hex.substr(0, 8), k])
 
 # ───────────────────────────────────────────────

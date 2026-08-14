@@ -378,7 +378,6 @@ Sentence N2 → exécution automatique
 
 **Réponse :** Le LEGAL.md délègue l'exécution au protocole automatisé. Ajouter :
 - Rotation obligatoire des administrateurs (2 ans max)
-- Veto technique : les Capitaines peuvent refuser un update AUTHORIZED_APPS
 - "Constitution cryptographique" : les règles clés encodées dans le Kind 30800 ne peuvent être changées qu'avec un quorum Ğ1 WoT
 
 ### 7.3 Risque "Attaque juridique coordonnée"
